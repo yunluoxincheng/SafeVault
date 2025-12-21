@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/main_nav_graph"
+    app:startDestination="@id/passwordListFragment">
+
+    <fragment
+        android:id="@+id/passwordListFragment"
+        android:name="com.ttt.safevault.ui.PasswordListFragment"
+        android:label="密码列表"
+        tools:layout="@layout/fragment_password_list">
+        <action
+            android:id="@+id/action_passwordListFragment_to_passwordDetailFragment"
+            app:destination="@id/passwordDetailFragment" />
+        <action
+            android:id="@+id/action_passwordListFragment_to_editPasswordFragment"
+            app:destination="@id/editPasswordFragment" />
+        <action
+            android:id="@+id/action_passwordListFragment_to_settingsFragment"
+            app:destination="@id/settingsFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/passwordDetailFragment"
+        android:name="com.ttt.safevault.ui.PasswordDetailFragment"
+        android:label="密码详情"
+        tools:layout="@layout/fragment_password_detail">
+        <argument
+            android:name="passwordId"
+            app:argType="integer" />
+        <action
+            android:id="@+id/action_passwordDetailFragment_to_editPasswordFragment"
+            app:destination="@id/editPasswordFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/editPasswordFragment"
+        android:name="com.ttt.safevault.ui.EditPasswordFragment"
+        android:label="编辑密码"
+        tools:layout="@layout/fragment_edit_password">
+        <argument
+            android:name="passwordId"
+            app:argType="integer"
+            android:defaultValue="-1" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/settingsFragment"
+        android:name="com.ttt.safevault.ui.SettingsFragment"
+        android:label="设置"
+        tools:layout="@layout/fragment_settings" />
+
+</navigation>

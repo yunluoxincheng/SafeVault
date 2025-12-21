@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dir:*)",
+      "Bash(./gradlew assembleDebug:*)",
+      "Bash(find:*)",
+      "Bash(./gradlew:*)",
+      "Bash(echo:*)",
+      "Bash(findstr:*)"
+    ]
+  }
+}

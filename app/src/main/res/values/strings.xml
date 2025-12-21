@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- App name -->
+    <string name="app_name">SafeVault</string>
+
+    <!-- Login screen -->
+    <string name="unlock_safevault">解锁 SafeVault</string>
+    <string name="set_master_password">设置主密码</string>
+    <string name="enter_master_password">输入主密码</string>
+    <string name="master_password">主密码</string>
+    <string name="confirm_master_password">确认主密码</string>
+    <string name="unlock">解锁</string>
+    <string name="initialize">初始化</string>
+    <string name="use_biometric">使用生物识别</string>
+
+    <!-- Password list -->
+    <string name="password_list_title">密码列表</string>
+    <string name="no_passwords">暂无密码</string>
+    <string name="add_first_password">添加您的第一个密码</string>
+    <string name="add_password">添加密码</string>
+
+    <!-- Password details/edit -->
+    <string name="title">标题</string>
+    <string name="username">用户名</string>
+    <string name="password">密码</string>
+    <string name="url">网址</string>
+    <string name="notes">备注</string>
+    <string name="edit">编辑</string>
+    <string name="delete">删除</string>
+    <string name="share">分享</string>
+    <string name="save_password">保存密码</string>
+    <string name="show_password">显示密码</string>
+    <string name="copied">已复制</string>
+    <string name="copy_password">复制密码</string>
+    <string name="copy_username">复制用户名</string>
+    <string name="new_password">新建密码</string>
+    <string name="password_details">密码详情</string>
+
+    <!-- Password generator -->
+    <string name="generate_password">生成密码</string>
+    <string name="generated_password">生成的密码</string>
+    <string name="password_length">密码长度</string>
+    <string name="character_types">字符类型</string>
+    <string name="uppercase_letters">大写字母</string>
+    <string name="lowercase_letters">小写字母</string>
+    <string name="numbers">数字</string>
+    <string name="symbols">特殊字符</string>
+    <string name="regenerate">重新生成</string>
+    <string name="use_password">使用密码</string>
+
+    <!-- Autofill -->
+    <string name="autofill_service_name">SafeVault 自动填充</string>
+    <string name="autofill_service_description">使用SafeVault自动填充用户名和密码</string>
+    <string name="autofill_more_option">更多选项</string>
+    <string name="autofill_new_password">新建密码</string>
+    <string name="autofill_new_password_desc">为此应用保存新密码</string>
+    <string name="autofill_select_account">选择账号</string>
+    <string name="autofill_autofill">自动填充</string>
+
+    <!-- Password strength -->
+    <string name="password_strength">密码强度</string>
+    <string name="password_strength_weak">弱</string>
+    <string name="password_strength_medium">中等</string>
+    <string name="password_strength_strong">强</string>
+
+    <!-- Menu items -->
+    <string name="search">搜索</string>
+    <string name="settings">设置</string>
+
+    <!-- Settings -->
+    <string name="security_settings">安全设置</string>
+    <string name="backup_settings">备份设置</string>
+    <string name="about">关于</string>
+    <string name="app_version">版本 1.0</string>
+
+    <!-- Colors -->
+    <string name="loading_overlay_background">#80000000</string>
+    <string name="strength_weak">#F44336</string>
+    <string name="strength_medium">#FF9800</string>
+    <string name="strength_strong">#4CAF50</string>
+</resources>
