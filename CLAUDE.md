@@ -5,6 +5,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ---
 ## 项目放在com.ttt.safevault软件包目录下
 
+##目前这个项目做的是前端部分
+
 ##项目的目标Android版本是Android10及以上
 
 ## SafeVault Android Password Manager
