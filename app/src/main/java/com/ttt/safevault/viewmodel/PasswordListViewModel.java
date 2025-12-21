@@ -136,16 +136,12 @@ public class PasswordListViewModel extends AndroidViewModel {
                     // 从列表中移除
                     List<PasswordItem> currentItems = _passwordItems.getValue();
                     if (currentItems != null) {
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                            currentItems.removeIf(item -> item.getId() == itemId);
-                        }
+                        currentItems.removeIf(item -> item.getId() == itemId);
                         _passwordItems.postValue(currentItems);
 
                         // 更新原始数据
                         if (allItems != null) {
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                                allItems.removeIf(item -> item.getId() == itemId);
-                            }
+                            allItems.removeIf(item -> item.getId() == itemId);
                         }
                     }
                 } else {
@@ -210,12 +206,9 @@ public class PasswordListViewModel extends AndroidViewModel {
      * 过滤条目（前端过滤）
      */
     private List<PasswordItem> filterItems(List<PasswordItem> items, String query) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            return items.stream()
-                    .filter(item -> matchesQuery(item, query))
-                    .collect(Collectors.toList());
-        }
-        return items;
+        return items.stream()
+                .filter(item -> matchesQuery(item, query))
+                .toList();
     }
 
     /**

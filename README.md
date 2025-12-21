@@ -4,10 +4,12 @@
 
 SafeVault是一个原生Android密码管理器应用，采用前后端分离架构。前端负责UI展示和用户交互，后端负责所有加密存储和数据持久化操作。
 
+**代码已升级至Java 17**，利用现代Java特性提供更简洁、安全的实现。
+
 **关键信息**
 - 包名：`com.ttt.safevault`
 - 构建namespace：`com.ttt.safevault`
-- 目标Android版本：Android 10+ (最小SDK 23，目标SDK 36)
+- 目标Android版本：Android 10+ (最小SDK 29，目标SDK 36)
 - 架构：MVVM (Model-View-ViewModel)
 
 ## 前端架构
@@ -138,6 +140,69 @@ public class PasswordItem implements Parcelable {
 
 **注意**：前端接收的`PasswordItem`对象中的密码是明文，后端负责加密存储和解密返回。
 
+## Java 17 现代化特性
+
+前端代码已经使用Java 17特性进行了现代化改造：
+
+### 1. **Records数据类**
+```java
+// 密码强度记录 - 自动生成equals、hashCode、toString
+public record PasswordStrength(int score, Level level, String description) {
+    // 紧凑构造器用于验证
+    public PasswordStrength {
+        if (score < 0 || score > 5) {
+            throw new IllegalArgumentException("分数必须在0-5之间");
+        }
+    }
+}
+```
+
+### 2. **Switch表达式**
+```java
+// 更简洁的条件表达式
+String level = switch (strength) {
+    case 0 -> "弱";
+    case 1 -> "中";
+    case 2 -> "强";
+    default -> "未知";
+};
+```
+
+### 3. **Text Blocks文本块**
+```java
+// 多行字符串格式更清晰
+String report = """
+    安全报告
+    =========
+    总密码数: %d
+    弱密码数: %d
+    """.formatted(total, weak);
+```
+
+### 4. **var类型推断**
+```java
+// 简化局部变量声明
+var items = backendService.getAllItems();
+var result = new PasswordStrength(score, level, desc);
+```
+
+### 5. **Stream API增强**
+```java
+// 使用toList()替代collect(Collectors.toList())
+var filtered = items.stream()
+    .filter(item -> matches(item))
+    .toList();
+```
+
+### 6. **模式匹配(instanceof)**
+```java
+// 后端实现可以使用
+if (obj instanceof PasswordItem item) {
+    // item已自动转换类型，无需强制转换
+    process(item);
+}
+```
+
 ## 后端实现要求
 
 ### 1. 加密存储
@@ -252,6 +317,59 @@ if (backendService.unlock(masterPassword)) {
 2. **加密测试**：验证加密解密的正确性
 3. **性能测试**：测试大数据量下的性能表现
 4. **安全测试**：确保敏感数据不会泄露
+
+## 后端Java 17建议
+
+后端实现时建议充分利用Java 17特性：
+
+### 数据存储层
+```java
+// 使用Record简化数据传输对象
+public record EncryptedEntry(
+    int id,
+    byte[] encryptedData,
+    String algorithm,
+    Instant createdAt
+) {}
+
+// 使用switch表达式处理加密算法
+public String encrypt(byte[] data, AlgorithmType type) {
+    return switch (type) {
+        case AES256 -> aes256Encrypt(data);
+        case CHACHA20 -> chacha20Encrypt(data);
+        default -> throw new IllegalArgumentException("不支持的算法");
+    };
+}
+```
+
+### 业务逻辑层
+```java
+// 使用Text Blocks生成配置文件
+String config = """
+    # SafeVault Backend Configuration
+    encryption.algorithm=AES-256-GCM
+    key.derivation=PBKDF2
+    iterations=100000
+    """;
+
+// 使用模式匹配处理异常
+try {
+    return decrypt(data);
+} catch (CryptoException e) {
+    // 自动提取异常信息
+    log.error("解密失败: {}", e.getMessage());
+    throw e;
+}
+```
+
+### 性能优化
+```java
+// 使用var减少代码冗余
+var executor = Executors.newVirtualThreadPerTaskExecutor();
+var encryptedEntries = entries.parallelStream()
+    .map(this::encrypt)
+    .toList();
+```
 
 ## 联系方式
 

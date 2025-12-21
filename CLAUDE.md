@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ##目前这个项目做的是前端部分
 
-##项目的目标Android版本是Android10及以上
+##项目的目标Android版本是Android10及以上（最小SDK 29，目标SDK 36)一定要兼容Android10+
 
 ## SafeVault Android Password Manager
 

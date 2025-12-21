@@ -28,7 +28,7 @@ public class AutofillFilterActivity extends AppCompatActivity {
     private RecyclerView recyclerView;
     private PasswordListAdapter adapter;
     private BackendService backendService;
-    private Object autofillManager; // 使用Object类型以支持API < 26
+    private android.view.autofill.AutofillManager autofillManager;
     private AutofillResult autofillResult;
     private List<PasswordItem> allItems;
     private String domain;
@@ -41,10 +41,8 @@ public class AutofillFilterActivity extends AppCompatActivity {
         // 防止截图
         getWindow().addFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE);
 
-        // 只在API 26+上初始化AutofillManager
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            autofillManager = getSystemService(android.view.autofill.AutofillManager.class);
-        }
+        // 初始化AutofillManager
+        autofillManager = getSystemService(android.view.autofill.AutofillManager.class);
 
         // TODO: 获取BackendService实例
         // backendService = Injector.get().getBackendService();
@@ -137,14 +135,10 @@ public class AutofillFilterActivity extends AppCompatActivity {
 
             setResult(RESULT_OK, replyIntent);
 
-            // 完成自动填充（仅API 26+）
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && autofillManager != null) {
+            // 完成自动填充
+            if (autofillManager != null && autofillManager.isEnabled()) {
                 try {
-                    android.view.autofill.AutofillManager manager =
-                        (android.view.autofill.AutofillManager) autofillManager;
-                    if (manager != null && manager.isEnabled()) {
-                        manager.commit();
-                    }
+                    autofillManager.commit();
                 } catch (Exception e) {
                     // 忽略自动填充提交错误
                 }

@@ -10,7 +10,6 @@ import android.os.Bundle;
 import android.os.CancellationSignal;
 import android.os.Handler;
 import android.os.Looper;
-import android.service.autofill.AutofillService;
 import android.service.autofill.Dataset;
 import android.service.autofill.FillCallback;
 import android.service.autofill.FillRequest;
@@ -21,7 +20,6 @@ import android.view.autofill.AutofillValue;
 import android.widget.RemoteViews;
 
 import androidx.annotation.NonNull;
-import androidx.annotation.RequiresApi;
 
 import com.ttt.safevault.model.BackendService;
 import com.ttt.safevault.model.PasswordItem;
@@ -34,11 +32,10 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * 自动填充服务实现（仅用于 API 26+）
+ * 自动填充服务实现
  * 处理应用的自动填充请求
  */
-@RequiresApi(api = Build.VERSION_CODES.O)
-public class AutofillServiceV26 extends AutofillService {
+public class AutofillService extends android.service.autofill.AutofillService {
 
     private BackendService backendService;
     private ExecutorService executor;
@@ -180,15 +177,13 @@ public class AutofillServiceV26 extends AutofillService {
                                            String packageName) {
         FillResponse.Builder responseBuilder = new FillResponse.Builder();
 
-        // 添加头部信息（仅API 28+支持setHeader）
+        // 添加头部信息
         // 使用系统默认布局，避免自定义资源依赖
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            RemoteViews presentation = new RemoteViews(getPackageName(), android.R.layout.simple_list_item_1);
-            String appName = getAppName(packageName);
-            presentation.setTextViewText(android.R.id.text1, appName);
-            presentation.setTextColor(android.R.id.text1, 0xFF212121); // Dark text color
-            responseBuilder.setHeader(presentation);
-        }
+        RemoteViews presentation = new RemoteViews(getPackageName(), android.R.layout.simple_list_item_1);
+        String appName = getAppName(packageName);
+        presentation.setTextViewText(android.R.id.text1, appName);
+        presentation.setTextColor(android.R.id.text1, 0xFF212121); // Dark text color
+        responseBuilder.setHeader(presentation);
 
         // 添加数据集
         int count = Math.min(credentials.size(), MAX_DATASETS);

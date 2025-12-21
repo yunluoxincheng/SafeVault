@@ -9,6 +9,7 @@ import androidx.lifecycle.MutableLiveData;
 
 import com.ttt.safevault.model.BackendService;
 import com.ttt.safevault.model.PasswordItem;
+import com.ttt.safevault.model.PasswordStrength;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -216,15 +217,15 @@ public class EditPasswordViewModel extends AndroidViewModel {
     /**
      * 检查密码强度
      */
-    public int checkPasswordStrength(String password) {
+    public PasswordStrength checkPasswordStrength(String password) {
         if (password == null || password.length() < 8) {
-            return 0; // 弱
+            return PasswordStrength.weak();
         }
 
-        boolean hasUpper = false;
-        boolean hasLower = false;
-        boolean hasDigit = false;
-        boolean hasSymbol = false;
+        var hasUpper = false;
+        var hasLower = false;
+        var hasDigit = false;
+        var hasSymbol = false;
 
         for (char c : password.toCharArray()) {
             if (Character.isUpperCase(c)) hasUpper = true;
@@ -233,32 +234,28 @@ public class EditPasswordViewModel extends AndroidViewModel {
             else hasSymbol = true;
         }
 
-        int score = 0;
+        var score = 0;
         if (hasUpper) score++;
         if (hasLower) score++;
         if (hasDigit) score++;
         if (hasSymbol) score++;
         if (password.length() >= 12) score++;
 
-        if (score >= 4) return 2; // 强
-        if (score >= 2) return 1; // 中
-        return 0; // 弱
+        return PasswordStrength.fromScore(score);
     }
 
     /**
      * 获取密码强度描述
      */
-    public String getPasswordStrengthDescription(int strength) {
-        switch (strength) {
-            case 0:
-                return "弱";
-            case 1:
-                return "中";
-            case 2:
-                return "强";
-            default:
-                return "未知";
-        }
+    public String getPasswordStrengthDescription(PasswordStrength strength) {
+        return strength.description();
+    }
+
+    /**
+     * 获取密码强度改进建议
+     */
+    public String getPasswordStrengthAdvice(PasswordStrength strength) {
+        return strength.getImprovementAdvice();
     }
 
     /**

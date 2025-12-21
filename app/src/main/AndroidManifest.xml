@@ -51,10 +51,9 @@
             android:noHistory="true"
             android:theme="@style/Theme.SafeVault.NoActionBar" />
 
-        <!-- 自动填充服务 (仅API 26+) -->
-        <!-- 注意：AutofillServiceV26使用@RequiresApi注解，确保不会在API < 26的设备上被调用 -->
+        <!-- 自动填充服务 -->
         <service
-            android:name=".autofill.AutofillServiceV26"
+            android:name=".autofill.AutofillService"
             android:permission="android.permission.BIND_AUTOFILL_SERVICE"
             android:exported="true"
             android:label="@string/autofill_service_name"

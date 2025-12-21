@@ -316,12 +316,7 @@ public final class SecurityUtils {
      * 检查是否允许未知来源
      */
     public static boolean isUnknownSourcesEnabled(@NonNull Context context) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            return context.getPackageManager().canRequestPackageInstalls();
-        } else {
-            return Settings.Secure.getInt(context.getContentResolver(),
-                    Settings.Secure.INSTALL_NON_MARKET_APPS, 0) != 0;
-        }
+        return context.getPackageManager().canRequestPackageInstalls();
     }
 
     /**
@@ -338,47 +333,28 @@ public final class SecurityUtils {
     @Nullable
     public static String getAppSignatureHash(@NonNull Context context) {
         try {
-            // For Android API 28+ use GET_SIGNING_CERTIFICATES
-            // For older versions use GET_SIGNATURES
-            int flags;
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                flags = PackageManager.GET_SIGNING_CERTIFICATES;
-            } else {
-                flags = PackageManager.GET_SIGNATURES;
-            }
-
+            int flags = PackageManager.GET_SIGNING_CERTIFICATES;
             PackageInfo packageInfo = context.getPackageManager()
                     .getPackageInfo(context.getPackageName(), flags);
 
-            // Handle different API versions
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                if (packageInfo.signingInfo != null) {
-                    android.content.pm.SigningInfo signingInfo = packageInfo.signingInfo;
-                    if (signingInfo.hasMultipleSigners()) {
-                        // Use APK signing scheme
-                        for (android.content.pm.Signature signature : signingInfo.getApkContentsSigners()) {
-                            byte[] signatureBytes = signature.toByteArray();
-                            MessageDigest md = MessageDigest.getInstance("SHA-256");
-                            md.update(signatureBytes);
-                            return bytesToHex(md.digest());
-                        }
-                    } else {
-                        // Use debug signing certificate
-                        for (android.content.pm.Signature signature : signingInfo.getApkContentsSigners()) {
-                            byte[] signatureBytes = signature.toByteArray();
-                            MessageDigest md = MessageDigest.getInstance("SHA-256");
-                            md.update(signatureBytes);
-                            return bytesToHex(md.digest());
-                        }
+            if (packageInfo.signingInfo != null) {
+                android.content.pm.SigningInfo signingInfo = packageInfo.signingInfo;
+                if (signingInfo.hasMultipleSigners()) {
+                    // Use APK signing scheme
+                    for (android.content.pm.Signature signature : signingInfo.getApkContentsSigners()) {
+                        byte[] signatureBytes = signature.toByteArray();
+                        MessageDigest md = MessageDigest.getInstance("SHA-256");
+                        md.update(signatureBytes);
+                        return bytesToHex(md.digest());
                     }
-                }
-            } else {
-                // Legacy method for API < 28
-                if (packageInfo.signatures != null && packageInfo.signatures.length > 0) {
-                    byte[] signature = packageInfo.signatures[0].toByteArray();
-                    MessageDigest md = MessageDigest.getInstance("SHA-256");
-                    md.update(signature);
-                    return bytesToHex(md.digest());
+                } else {
+                    // Use debug signing certificate
+                    for (android.content.pm.Signature signature : signingInfo.getApkContentsSigners()) {
+                        byte[] signatureBytes = signature.toByteArray();
+                        MessageDigest md = MessageDigest.getInstance("SHA-256");
+                        md.update(signatureBytes);
+                        return bytesToHex(md.digest());
+                    }
                 }
             }
         } catch (Exception e) {

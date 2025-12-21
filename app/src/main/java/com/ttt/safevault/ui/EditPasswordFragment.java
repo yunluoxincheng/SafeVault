@@ -25,6 +25,7 @@ import com.google.android.material.textfield.TextInputLayout;
 import com.ttt.safevault.R;
 import com.ttt.safevault.model.BackendService;
 import com.ttt.safevault.model.PasswordItem;
+import com.ttt.safevault.model.PasswordStrength;
 import com.ttt.safevault.viewmodel.EditPasswordViewModel;
 
 /**
@@ -262,27 +263,18 @@ public class EditPasswordFragment extends Fragment {
         }
 
         passwordStrengthCard.setVisibility(View.VISIBLE);
-        int strength = viewModel.checkPasswordStrength(password);
-        String description = viewModel.getPasswordStrengthDescription(strength);
+        var strength = viewModel.checkPasswordStrength(password);
+        var description = viewModel.getPasswordStrengthDescription(strength);
 
-        passwordStrengthBar.setProgress((strength + 1) * 33); // 0-100
+        passwordStrengthBar.setProgress((strength.score() + 1) * 33); // 0-100
         passwordStrengthText.setText(description);
 
         // 设置颜色
-        int colorRes;
-        switch (strength) {
-            case 0:
-                colorRes = R.color.strength_weak;
-                break;
-            case 1:
-                colorRes = R.color.strength_medium;
-                break;
-            case 2:
-                colorRes = R.color.strength_strong;
-                break;
-            default:
-                colorRes = R.color.strength_weak;
-        }
+        var colorRes = switch (strength.level()) {
+            case WEAK -> R.color.strength_weak;
+            case MEDIUM -> R.color.strength_medium;
+            case STRONG -> R.color.strength_strong;
+        };
 
         passwordStrengthBar.setProgressTintList(getResources().getColorStateList(colorRes));
         passwordStrengthText.setTextColor(getResources().getColor(colorRes));

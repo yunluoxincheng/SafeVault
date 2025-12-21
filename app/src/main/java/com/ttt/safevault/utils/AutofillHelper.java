@@ -21,10 +21,10 @@ public class AutofillHelper {
      * 查找可填充的字段
      */
     public static FieldResult findAutofillFields(AssistStructure structure) {
-        FieldResult result = new FieldResult();
+        var result = new FieldResult();
 
         // 遍历所有视图节点
-        List<ViewNode> nodes = new ArrayList<>();
+        var nodes = new ArrayList<ViewNode>();
         traverseStructure(structure, nodes);
 
         // 查找URL/域名
@@ -77,9 +77,7 @@ public class AutofillHelper {
         for (ViewNode node : nodes) {
             if (isUsernameField(node)) {
                 Log.d(TAG, "Found username field: " + node.getIdEntry());
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    return node.getAutofillId();
-                }
+                return node.getAutofillId();
             }
         }
 
@@ -93,9 +91,7 @@ public class AutofillHelper {
         for (ViewNode node : nodes) {
             if (isPasswordField(node)) {
                 Log.d(TAG, "Found password field: " + node.getIdEntry());
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    return node.getAutofillId();
-                }
+                return node.getAutofillId();
             }
         }
 
@@ -109,9 +105,7 @@ public class AutofillHelper {
         for (ViewNode node : nodes) {
             if (isUrlField(node)) {
                 Log.d(TAG, "Found URL field: " + node.getIdEntry());
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    return node.getAutofillId();
-                }
+                return node.getAutofillId();
             }
         }
 
@@ -132,10 +126,8 @@ public class AutofillHelper {
 
         // 尝试从应用的web域名提取
         for (ViewNode node : nodes) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                if (node.getWebDomain() != null) {
-                    return node.getWebDomain();
-                }
+            if (node.getWebDomain() != null) {
+                return node.getWebDomain();
             }
         }
 
@@ -147,10 +139,7 @@ public class AutofillHelper {
      */
     private static boolean isUsernameField(ViewNode node) {
         // 检查autofill hints
-        String[] autofillHints = null;
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            autofillHints = node.getAutofillHints();
-        }
+        String[] autofillHints = node.getAutofillHints();
         if (autofillHints != null) {
             for (String hint : autofillHints) {
                 if ("username".equals(hint) || "email".equals(hint) ||
@@ -181,10 +170,7 @@ public class AutofillHelper {
         }
 
         // 检查输入类型
-        int inputType = 0;
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            inputType = node.getInputType();
-        }
+        int inputType = node.getInputType();
         if ((inputType & android.text.InputType.TYPE_CLASS_TEXT) != 0 &&
             (inputType & android.text.InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS) != 0) {
             return true;
@@ -198,10 +184,7 @@ public class AutofillHelper {
      */
     private static boolean isPasswordField(ViewNode node) {
         // 检查autofill hints
-        String[] autofillHints = null;
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            autofillHints = node.getAutofillHints();
-        }
+        String[] autofillHints = node.getAutofillHints();
         if (autofillHints != null) {
             for (String hint : autofillHints) {
                 if ("password".equals(hint) || "newPassword".equals(hint)) {
@@ -211,10 +194,7 @@ public class AutofillHelper {
         }
 
         // 检查输入类型
-        int inputType = 0;
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            inputType = node.getInputType();
-        }
+        int inputType = node.getInputType();
         if ((inputType & android.text.InputType.TYPE_CLASS_TEXT) != 0 &&
             (inputType & android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD) != 0) {
             return true;
@@ -247,10 +227,7 @@ public class AutofillHelper {
      */
     private static boolean isUrlField(ViewNode node) {
         // 检查autofill hints
-        String[] autofillHints = null;
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            autofillHints = node.getAutofillHints();
-        }
+        String[] autofillHints = node.getAutofillHints();
         if (autofillHints != null) {
             for (String hint : autofillHints) {
                 if ("webAddress".equals(hint) || "url".equals(hint)) {
@@ -260,10 +237,7 @@ public class AutofillHelper {
         }
 
         // 检查输入类型
-        int inputType = 0;
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            inputType = node.getInputType();
-        }
+        int inputType = node.getInputType();
         if ((inputType & android.text.InputType.TYPE_CLASS_TEXT) != 0 &&
             (inputType & android.text.InputType.TYPE_TEXT_VARIATION_URI) != 0) {
             return true;

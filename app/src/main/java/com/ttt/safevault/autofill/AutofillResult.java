@@ -30,15 +30,9 @@ public class AutofillResult implements Parcelable {
     }
 
     protected AutofillResult(Parcel in) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            usernameId = in.readParcelable(AutofillId.class.getClassLoader());
-        }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            passwordId = in.readParcelable(AutofillId.class.getClassLoader());
-        }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            urlId = in.readParcelable(AutofillId.class.getClassLoader());
-        }
+        usernameId = in.readParcelable(AutofillId.class.getClassLoader());
+        passwordId = in.readParcelable(AutofillId.class.getClassLoader());
+        urlId = in.readParcelable(AutofillId.class.getClassLoader());
         packageName = in.readString();
         webDomain = in.readString();
     }
