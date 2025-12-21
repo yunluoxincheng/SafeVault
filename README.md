@@ -6,14 +6,14 @@ SafeVault是一个原生Android密码管理器应用，采用前后端分离架�
 
 **关键信息**
 - 包名：`com.ttt.safevault`
-- 构建namespace：`com.safevault`
-- 目标Android版本：Android 10+ (最小SDK 23，目标SDK 35)
+- 构建namespace：`com.ttt.safevault`
+- 目标Android版本：Android 10+ (最小SDK 23，目标SDK 36)
 - 架构：MVVM (Model-View-ViewModel)
 
 ## 前端架构
 
 ### 技术栈
-- **语言**: Java 8
+- **语言**: Java 17
 - **UI框架**: Material Components + ConstraintLayout
 - **架构模式**: MVVM with Android Jetpack
 - **导航**: Android Navigation Component
