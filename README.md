@@ -4,8 +4,6 @@
 
 SafeVault是一个原生Android密码管理器应用，采用前后端分离架构。前端负责UI展示和用户交互，后端负责所有加密存储和数据持久化操作。
 
-**代码已升级至Java 17**，利用现代Java特性提供更简洁、安全的实现。
-
 **关键信息**
 - 包名：`com.ttt.safevault`
 - 构建namespace：`com.ttt.safevault`
