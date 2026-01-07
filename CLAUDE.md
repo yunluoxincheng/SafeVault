@@ -1,3 +1,27 @@
+<!-- OPENSPEC:START -->
+# OpenSpec Instructions
+
+These instructions are for AI assistants working in this project.
+
+Always open `@/openspec/AGENTS.md` when the request:
+- Mentions planning or proposals (words like proposal, spec, change, plan)
+- Introduces new capabilities, breaking changes, architecture shifts, or big performance/security work
+- Sounds ambiguous and you need the authoritative spec before coding
+
+Use `@/openspec/AGENTS.md` to learn:
+- How to create and apply change proposals
+- Spec format and conventions
+- Project structure and guidelines
+
+## OpenSpec Validator Requirements
+When writing Requirements in OpenSpec specs, the description **MUST** include English keywords "MUST" or "SHALL" to pass validation. For example:
+- ❌ "用户需要能够登录系统" (will fail validation)
+- ✅ "The system MUST allow users to log in" or "用户系统MUST支持用户登录功能"
+
+Keep this managed block so 'openspec update' can refresh the instructions.
+
+<!-- OPENSPEC:END -->
+
 # CLAUDE.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
@@ -129,3 +153,9 @@ The frontend codebase is incomplete without a backend implementation of `Backend
 - Room database included for repository access only
 - Material Components for consistent UI
 - Biometric authentication support
+
+## API Usage Limits
+
+When using tools that make concurrent API calls (such as Task tool with multiple agents, or multiple parallel Bash/Grep/Read calls), **limit concurrency to maximum 5 simultaneous operations**.
+
+This helps avoid hitting API rate limits and ensures stable operation. When launching multiple parallel tasks, control the batch size to stay within this limit.

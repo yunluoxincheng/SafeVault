@@ -7,11 +7,13 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
+import androidx.lifecycle.ViewModelProvider;
 import androidx.navigation.Navigation;
 
 import com.google.android.material.appbar.MaterialToolbar;
@@ -36,12 +38,9 @@ public class PasswordDetailFragment extends Fragment {
     private MaterialToolbar toolbar;
     private TextInputLayout titleLayout;
     private TextInputEditText titleText;
-    private TextInputLayout usernameLayout;
-    private TextInputEditText usernameText;
-    private TextInputLayout passwordLayout;
-    private TextInputEditText passwordText;
-    private TextInputLayout urlLayout;
-    private TextInputEditText urlText;
+    private TextView usernameText;
+    private TextView passwordText;
+    private TextView urlText;
     private TextInputLayout notesLayout;
     private TextInputEditText notesText;
     private ImageView passwordVisibilityIcon;
@@ -68,8 +67,8 @@ public class PasswordDetailFragment extends Fragment {
             passwordId = getArguments().getInt("passwordId", -1);
         }
 
-        // TODO: 获取BackendService实例
-        backendService = null; // 通过依赖注入获取
+        // 获取BackendService实例
+        backendService = com.ttt.safevault.ServiceLocator.getInstance().getBackendService();
     }
 
     @Nullable
@@ -94,11 +93,8 @@ public class PasswordDetailFragment extends Fragment {
         toolbar = view.findViewById(R.id.toolbar);
         titleLayout = view.findViewById(R.id.title_layout);
         titleText = view.findViewById(R.id.title_text);
-        usernameLayout = view.findViewById(R.id.username_layout);
         usernameText = view.findViewById(R.id.username_text);
-        passwordLayout = view.findViewById(R.id.password_layout);
         passwordText = view.findViewById(R.id.password_text);
-        urlLayout = view.findViewById(R.id.url_layout);
         urlText = view.findViewById(R.id.url_text);
         notesLayout = view.findViewById(R.id.notes_layout);
         notesText = view.findViewById(R.id.notes_text);
@@ -117,9 +113,9 @@ public class PasswordDetailFragment extends Fragment {
     }
 
     private void initViewModel() {
-        // TODO: 通过ViewModelFactory创建ViewModel
-        // PasswordDetailViewModelFactory factory = new PasswordDetailViewModelFactory(backendService);
-        // viewModel = new ViewModelProvider(requireActivity(), factory).get(PasswordDetailViewModel.class);
+        // 通过ViewModelFactory创建ViewModel
+        ViewModelProvider.Factory factory = new com.ttt.safevault.viewmodel.ViewModelFactory(requireActivity().getApplication());
+        viewModel = new ViewModelProvider(requireActivity(), factory).get(PasswordDetailViewModel.class);
 
         if (passwordId >= 0) {
             viewModel.loadPasswordItem(passwordId);
@@ -236,9 +232,9 @@ public class PasswordDetailFragment extends Fragment {
         // 用户名
         if (!TextUtils.isEmpty(item.getUsername())) {
             usernameText.setText(item.getUsername());
-            usernameLayout.setVisibility(View.VISIBLE);
+            usernameCard.setVisibility(View.VISIBLE);
         } else {
-            usernameLayout.setVisibility(View.GONE);
+            usernameCard.setVisibility(View.GONE);
         }
 
         // 密码（总是显示，但内容可能隐藏）
@@ -247,9 +243,9 @@ public class PasswordDetailFragment extends Fragment {
         // URL
         if (!TextUtils.isEmpty(item.getUrl())) {
             urlText.setText(item.getUrl());
-            urlLayout.setVisibility(View.VISIBLE);
+            urlCard.setVisibility(View.VISIBLE);
         } else {
-            urlLayout.setVisibility(View.GONE);
+            urlCard.setVisibility(View.GONE);
         }
 
         // 备注
@@ -294,11 +290,19 @@ public class PasswordDetailFragment extends Fragment {
             );
         }
 
-        if (passwordText != null) {
-            passwordText.setInputType(isVisible ?
-                    android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD :
-                    android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
-            );
+        if (passwordText != null && viewModel.passwordItem.getValue() != null) {
+            // 根据可见性设置显示内容
+            if (isVisible) {
+                passwordText.setText(viewModel.passwordItem.getValue().getPassword());
+            } else {
+                // 显示遮罩
+                String password = viewModel.passwordItem.getValue().getPassword();
+                StringBuilder masked = new StringBuilder();
+                for (int i = 0; i < password.length(); i++) {
+                    masked.append("•");
+                }
+                passwordText.setText(masked.toString());
+            }
         }
     }
 

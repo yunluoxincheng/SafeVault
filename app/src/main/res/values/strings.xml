@@ -17,7 +17,11 @@
     <string name="password_list_title">密码列表</string>
     <string name="no_passwords">暂无密码</string>
     <string name="add_first_password">添加您的第一个密码</string>
+    <string name="add_first_password_button">添加密码</string>
+    <string name="add_first_password_button_description">点击添加您的第一个密码</string>
     <string name="add_password">添加密码</string>
+    <string name="empty_state_icon_description">空状态图标</string>
+    <string name="no_search_results">未找到匹配的密码</string>
 
     <!-- Password details/edit -->
     <string name="title">标题</string>
@@ -29,7 +33,6 @@
     <string name="delete">删除</string>
     <string name="share">分享</string>
     <string name="save_password">保存密码</string>
-    <string name="show_password">显示密码</string>
     <string name="copied">已复制</string>
     <string name="copy_password">复制密码</string>
     <string name="copy_username">复制用户名</string>
@@ -78,4 +81,16 @@
     <string name="strength_weak">#F44336</string>
     <string name="strength_medium">#FF9800</string>
     <string name="strength_strong">#4CAF50</string>
+
+    <!-- Loading -->
+    <string name="loading_indicator_description">正在加载</string>
+    <string name="loading_default_message">请稍候...</string>
+    <string name="loading_passwords">正在加载密码...</string>
+    <string name="saving_password">正在保存密码...</string>
+    <string name="deleting_password">正在删除密码...</string>
+    <string name="authenticating">正在验证...</string>
+
+    <!-- Password visibility -->
+    <string name="show_password">显示密码</string>
+    <string name="hide_password">隐藏密码</string>
 </resources>

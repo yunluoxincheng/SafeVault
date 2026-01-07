@@ -4,11 +4,13 @@ import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Button;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
+import androidx.lifecycle.ViewModelProvider;
 import androidx.navigation.Navigation;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -19,6 +21,7 @@ import com.ttt.safevault.R;
 import com.ttt.safevault.adapter.PasswordListAdapter;
 import com.ttt.safevault.model.BackendService;
 import com.ttt.safevault.model.PasswordItem;
+import com.ttt.safevault.utils.AnimationUtils;
 import com.ttt.safevault.viewmodel.PasswordListViewModel;
 
 import java.util.List;
@@ -32,7 +35,10 @@ public class PasswordListFragment extends Fragment implements PasswordListAdapte
     private PasswordListViewModel viewModel;
     private RecyclerView recyclerView;
     private SwipeRefreshLayout swipeRefreshLayout;
+    private View emptyLayout;
     private TextView emptyText;
+    private TextView emptySubtext;
+    private Button emptyAddButton;
     private View loadingLayout;
     private PasswordListAdapter adapter;
     private BackendService backendService;
@@ -41,8 +47,8 @@ public class PasswordListFragment extends Fragment implements PasswordListAdapte
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // TODO: 获取BackendService实例
-        backendService = null; // 通过依赖注入获取
+        // 获取BackendService实例
+        backendService = com.ttt.safevault.ServiceLocator.getInstance().getBackendService();
     }
 
     @Nullable
@@ -66,17 +72,34 @@ public class PasswordListFragment extends Fragment implements PasswordListAdapte
     private void initViews(View view) {
         recyclerView = view.findViewById(R.id.recycler_view);
         swipeRefreshLayout = view.findViewById(R.id.swipe_refresh);
+        emptyLayout = view.findViewById(R.id.empty_layout);
         emptyText = view.findViewById(R.id.empty_text);
+        emptySubtext = view.findViewById(R.id.empty_subtext);
+        emptyAddButton = view.findViewById(R.id.empty_add_button);
         loadingLayout = view.findViewById(R.id.loading_layout);
+
+        // 设置空状态按钮点击事件
+        if (emptyAddButton != null) {
+            emptyAddButton.setOnClickListener(v -> {
+                AnimationUtils.buttonPressFeedback(v);
+                navigateToAddPassword();
+            });
+        }
+    }
+
+    private void navigateToAddPassword() {
+        // 导航到添加密码页面（passwordId = -1 表示新增）
+        Bundle bundle = new Bundle();
+        bundle.putInt("passwordId", -1);
+
+        Navigation.findNavController(requireView())
+                .navigate(R.id.action_passwordListFragment_to_editPasswordFragment, bundle);
     }
 
     private void initViewModel() {
-        // TODO: 通过ViewModelFactory创建ViewModel - 需要BackendService实现
-        // PasswordListViewModelFactory factory = new PasswordListViewModelFactory(backendService);
-        // viewModel = new ViewModelProvider(requireActivity(), factory).get(PasswordListViewModel.class);
-
-        // 临时设置viewModel为null以避免编译错误，实际使用时需要实现BackendService
-        viewModel = null;
+        // 通过ViewModelFactory创建ViewModel
+        ViewModelProvider.Factory factory = new com.ttt.safevault.viewmodel.ViewModelFactory(requireActivity().getApplication());
+        viewModel = new ViewModelProvider(requireActivity(), factory).get(PasswordListViewModel.class);
     }
 
     private void setupRecyclerView() {
@@ -89,8 +112,6 @@ public class PasswordListFragment extends Fragment implements PasswordListAdapte
     }
 
     private void setupObservers() {
-        // TODO: 待ViewModel实现后取消注释以下代码
-        /*
         // 观察密码列表
         viewModel.passwordItems.observe(getViewLifecycleOwner(), items -> {
             adapter.submitList(items);
@@ -119,35 +140,32 @@ public class PasswordListFragment extends Fragment implements PasswordListAdapte
                 updateEmptyState(isEmpty);
             }
         });
-        */
     }
 
     private void setupSwipeRefresh() {
         swipeRefreshLayout.setOnRefreshListener(() -> {
-            // TODO: 待ViewModel实现后取消注释
-            // viewModel.refresh();
-
-            // 临时隐藏刷新状态
-            swipeRefreshLayout.setRefreshing(false);
+            viewModel.refresh();
         });
     }
 
     private void updateEmptyState(List<PasswordItem> items) {
         boolean isEmpty = items == null || items.isEmpty();
 
-        if (emptyText != null) {
-            emptyText.setVisibility(isEmpty ? View.VISIBLE : View.GONE);
+        if (emptyLayout != null) {
+            emptyLayout.setVisibility(isEmpty ? View.VISIBLE : View.GONE);
 
-            if (isEmpty) {
-                // TODO: 待ViewModel实现后恢复完整逻辑
-                /*
-                if (viewModel.isSearching.getValue() != null && viewModel.isSearching.getValue()) {
+            if (isEmpty && emptyText != null) {
+                Boolean isSearching = viewModel.isSearching.getValue();
+                if (isSearching != null && isSearching) {
                     emptyText.setText(R.string.no_search_results);
                 } else {
                     emptyText.setText(R.string.no_passwords);
                 }
-                */
-                emptyText.setText(R.string.no_passwords);
+
+                // 添加淡入动画
+                if (emptyLayout.getVisibility() == View.VISIBLE) {
+                    AnimationUtils.fadeIn(emptyLayout, 300);
+                }
             }
         }
 
@@ -155,19 +173,21 @@ public class PasswordListFragment extends Fragment implements PasswordListAdapte
     }
 
     private void updateEmptyState(boolean isEmpty) {
-        if (emptyText != null) {
-            emptyText.setVisibility(isEmpty ? View.VISIBLE : View.GONE);
+        if (emptyLayout != null) {
+            emptyLayout.setVisibility(isEmpty ? View.VISIBLE : View.GONE);
 
-            if (isEmpty) {
-                // TODO: 待ViewModel实现后恢复完整逻辑
-                /*
-                if (viewModel.isSearching.getValue() != null && viewModel.isSearching.getValue()) {
+            if (isEmpty && emptyText != null) {
+                Boolean isSearching = viewModel.isSearching.getValue();
+                if (isSearching != null && isSearching) {
                     emptyText.setText(R.string.no_search_results);
                 } else {
                     emptyText.setText(R.string.no_passwords);
                 }
-                */
-                emptyText.setText(R.string.no_passwords);
+
+                // 添加淡入动画
+                if (emptyLayout.getVisibility() == View.VISIBLE) {
+                    AnimationUtils.fadeIn(emptyLayout, 300);
+                }
             }
         }
 
@@ -196,11 +216,7 @@ public class PasswordListFragment extends Fragment implements PasswordListAdapte
 
     @Override
     public void onItemCopyClick(PasswordItem item) {
-        // TODO: 待ViewModel实现后取消注释
-        // viewModel.copyPassword(item.getId());
-
-        // 临时提示功能未实现
-        showError("复制功能待BackendService和ViewModel实现后可用");
+        viewModel.copyPassword(item.getId());
     }
 
     @Override
@@ -221,11 +237,7 @@ public class PasswordListFragment extends Fragment implements PasswordListAdapte
                 .setMessage("确定要删除 \"" + item.getDisplayName() + "\" 吗？此操作无法撤销。")
                 .setNegativeButton("取消", null)
                 .setPositiveButton("删除", (dialog, which) -> {
-                    // TODO: 待ViewModel实现后取消注释
-                    // viewModel.deletePasswordItem(item.getId());
-
-                    // 临时提示功能未实现
-                    showError("删除功能待BackendService和ViewModel实现后可用");
+                    viewModel.deletePasswordItem(item.getId());
                 })
                 .show();
     }
@@ -233,10 +245,7 @@ public class PasswordListFragment extends Fragment implements PasswordListAdapte
     @Override
     public void onResume() {
         super.onResume();
-        // TODO: 待ViewModel实现后取消注释
         // 每次返回时刷新数据
-        // if (viewModel != null) {
-        //     viewModel.refresh();
-        // }
+        viewModel.refresh();
     }
 }

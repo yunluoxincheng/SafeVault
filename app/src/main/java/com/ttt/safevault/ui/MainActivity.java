@@ -6,8 +6,11 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 
+import java.util.List;
+
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.lifecycle.ViewModelProvider;
 import androidx.navigation.NavController;
 import androidx.navigation.fragment.NavHostFragment;
 import androidx.navigation.ui.AppBarConfiguration;
@@ -17,6 +20,7 @@ import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.ttt.safevault.R;
 import com.ttt.safevault.model.BackendService;
+import com.ttt.safevault.utils.SearchHistoryManager;
 import com.ttt.safevault.viewmodel.PasswordListViewModel;
 
 /**
@@ -29,6 +33,7 @@ public class MainActivity extends AppCompatActivity {
     private AppBarConfiguration appBarConfiguration;
     private PasswordListViewModel listViewModel;
     private BackendService backendService;
+    private SearchHistoryManager searchHistoryManager;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -38,8 +43,11 @@ public class MainActivity extends AppCompatActivity {
         // 防止截图
         getWindow().addFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE);
 
-        // TODO: 获取BackendService实例
-        backendService = null; // 通过依赖注入获取
+        // 获取BackendService实例
+        backendService = com.ttt.safevault.ServiceLocator.getInstance().getBackendService();
+
+        // 初始化搜索历史管理器
+        searchHistoryManager = SearchHistoryManager.getInstance(this);
 
         initNavigation();
         initToolbar();
@@ -82,19 +90,17 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void initViewModel() {
-        // TODO: 通过ViewModelFactory获取ViewModel
-        // ViewModelProvider.Factory factory = new PasswordListViewModelFactory(backendService);
-        // listViewModel = new ViewModelProvider(this, factory).get(PasswordListViewModel.class);
+        // 通过ViewModelFactory获取ViewModel
+        ViewModelProvider.Factory factory = new com.ttt.safevault.viewmodel.ViewModelFactory(getApplication());
+        listViewModel = new ViewModelProvider(this, factory).get(PasswordListViewModel.class);
 
         // 观察搜索状态，控制FAB显示
-        if (listViewModel != null) {
-            listViewModel.isSearching.observe(this, isSearching -> {
-                FloatingActionButton fab = findViewById(R.id.fab_add);
-                if (fab != null) {
-                    fab.setVisibility(isSearching ? View.GONE : View.VISIBLE);
-                }
-            });
-        }
+        listViewModel.isSearching.observe(this, isSearching -> {
+            FloatingActionButton fab = findViewById(R.id.fab_add);
+            if (fab != null) {
+                fab.setVisibility(isSearching ? View.GONE : View.VISIBLE);
+            }
+        });
     }
 
     @Override
@@ -116,12 +122,26 @@ public class MainActivity extends AppCompatActivity {
     private void setupSearchView(androidx.appcompat.widget.SearchView searchView) {
         searchView.setQueryHint("搜索密码");
 
+        // 设置搜索建议（从搜索历史）
+        searchView.setOnQueryTextFocusChangeListener((v, hasFocus) -> {
+            if (hasFocus && searchHistoryManager != null) {
+                // 可以在这里显示搜索建议
+                // SearchView 不直接支持下拉建议，需要自定义实现
+            }
+        });
+
         searchView.setOnQueryTextListener(new androidx.appcompat.widget.SearchView.OnQueryTextListener() {
             @Override
             public boolean onQueryTextSubmit(String query) {
                 if (listViewModel != null) {
                     listViewModel.search(query);
                 }
+
+                // 添加到搜索历史
+                if (searchHistoryManager != null && query != null && !query.trim().isEmpty()) {
+                    searchHistoryManager.addSearchQuery(query.trim());
+                }
+
                 return true;
             }
 
@@ -130,6 +150,11 @@ public class MainActivity extends AppCompatActivity {
                 if (listViewModel != null) {
                     listViewModel.search(newText);
                 }
+
+                // 可以在这里实现搜索建议功能
+                // List<String> suggestions = searchHistoryManager != null ?
+                //         searchHistoryManager.getSearchSuggestions(newText) : new ArrayList<>();
+
                 return true;
             }
         });
@@ -140,6 +165,14 @@ public class MainActivity extends AppCompatActivity {
             }
             return true;
         });
+
+        // 设置搜索历史（最近搜索）
+        if (searchHistoryManager != null && !searchHistoryManager.isEmpty()) {
+            List<String> recentSearches = searchHistoryManager.getSearchHistoryQueries();
+            if (!recentSearches.isEmpty()) {
+                searchView.setQuery(recentSearches.get(0), false);
+            }
+        }
     }
 
     @Override
@@ -164,15 +197,12 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     public void onBackPressed() {
-        // TODO: 待ViewModel实现后恢复完整逻辑
-        /*
         // 如果在搜索状态，退出搜索
-        if (listViewModel != null && listViewModel.getIsSearching().getValue() != null
-                && listViewModel.getIsSearching().getValue()) {
+        Boolean isSearching = listViewModel.isSearching.getValue();
+        if (isSearching != null && isSearching) {
             listViewModel.clearSearch();
             return;
         }
-        */
 
         super.onBackPressed();
     }

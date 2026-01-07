@@ -12,13 +12,25 @@
         tools:layout="@layout/fragment_password_list">
         <action
             android:id="@+id/action_passwordListFragment_to_passwordDetailFragment"
-            app:destination="@id/passwordDetailFragment" />
+            app:destination="@id/passwordDetailFragment"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left"
+            app:popEnterAnim="@anim/slide_in_left"
+            app:popExitAnim="@anim/slide_out_right" />
         <action
             android:id="@+id/action_passwordListFragment_to_editPasswordFragment"
-            app:destination="@id/editPasswordFragment" />
+            app:destination="@id/editPasswordFragment"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left"
+            app:popEnterAnim="@anim/slide_in_left"
+            app:popExitAnim="@anim/slide_out_right" />
         <action
             android:id="@+id/action_passwordListFragment_to_settingsFragment"
-            app:destination="@id/settingsFragment" />
+            app:destination="@id/settingsFragment"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left"
+            app:popEnterAnim="@anim/slide_in_left"
+            app:popExitAnim="@anim/slide_out_right" />
     </fragment>
 
     <fragment
@@ -31,7 +43,11 @@
             app:argType="integer" />
         <action
             android:id="@+id/action_passwordDetailFragment_to_editPasswordFragment"
-            app:destination="@id/editPasswordFragment" />
+            app:destination="@id/editPasswordFragment"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left"
+            app:popEnterAnim="@anim/slide_in_left"
+            app:popExitAnim="@anim/slide_out_right" />
     </fragment>
 
     <fragment

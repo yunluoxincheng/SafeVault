@@ -12,11 +12,13 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.lifecycle.ViewModelProvider;
 
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
 import com.ttt.safevault.R;
 import com.ttt.safevault.model.BackendService;
+import com.ttt.safevault.utils.AnimationUtils;
 import com.ttt.safevault.viewmodel.LoginViewModel;
 
 /**
@@ -39,6 +41,8 @@ public class LoginActivity extends AppCompatActivity {
 
     // 状态标志
     private boolean isInitializing = false;
+    private boolean isPasswordVisible = false;
+    private boolean isConfirmPasswordVisible = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -48,15 +52,12 @@ public class LoginActivity extends AppCompatActivity {
         // 防止截图
         getWindow().addFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE);
 
-        // TODO: 获取BackendService实例 - 需要实现BackendService的具体实现
-        BackendService backendService = null; // 这里需要依赖注入或通过其他方式获取
+        // 获取BackendService实例
+        BackendService backendService = com.ttt.safevault.ServiceLocator.getInstance().getBackendService();
 
-        // 初始化ViewModel - 待BackendService实现后取消注释
-        // ViewModelProvider.Factory factory = new LoginViewModelFactory(backendService);
-        // viewModel = new ViewModelProvider(this, factory).get(LoginViewModel.class);
-
-        // 临时设置viewModel为null以避免编译错误，实际使用时需要实现BackendService
-        viewModel = null;
+        // 初始化ViewModel
+        ViewModelProvider.Factory factory = new com.ttt.safevault.viewmodel.ViewModelFactory(getApplication());
+        viewModel = new ViewModelProvider(this, factory).get(LoginViewModel.class);
 
         initViews();
         setupObservers();
@@ -78,8 +79,6 @@ public class LoginActivity extends AppCompatActivity {
     }
 
     private void setupObservers() {
-        // 待BackendService和ViewModel实现后，取消注释以下代码
-        /*
         // 观察认证状态
         viewModel.isAuthenticated.observe(this, isAuthenticated -> {
             if (isAuthenticated) {
@@ -103,50 +102,56 @@ public class LoginActivity extends AppCompatActivity {
 
         // 观察初始化状态
         viewModel.isInitialized.observe(this, isInitialized -> {
-            updateUiForInitializationState(!isInitialized);
+            if (isInitialized != null) {
+                updateUiForInitializationState(!isInitialized);
+            }
         });
 
         // 观察生物识别支持
         viewModel.canUseBiometric.observe(this, canUse -> {
-            biometricButton.setVisibility(canUse ? View.VISIBLE : View.GONE);
+            if (canUse != null) {
+                biometricButton.setVisibility(canUse ? View.VISIBLE : View.GONE);
+            }
         });
-        */
     }
 
     private void setupClickListeners() {
         loginButton.setOnClickListener(v -> {
             String password = passwordInput.getText().toString().trim();
 
-            // TODO: 待ViewModel实现后取消注释
-            /*
             if (isInitializing) {
                 String confirmPassword = confirmPasswordInput.getText().toString().trim();
                 viewModel.initializeWithPassword(password, confirmPassword);
             } else {
                 viewModel.loginWithPassword(password);
             }
-            */
-
-            // 临时提示功能未实现
-            showError("功能待BackendService和ViewModel实现后可用");
         });
 
         biometricButton.setOnClickListener(v -> {
-            // TODO: 待ViewModel实现后取消注释
-            // viewModel.loginWithBiometric();
-
-            // 临时提示功能未实现
-            showError("生物识别功能待实现");
+            viewModel.loginWithBiometric();
         });
 
         // 清除错误
         passwordInput.setOnFocusChangeListener((v, hasFocus) -> {
             if (hasFocus) {
-                // TODO: 待ViewModel实现后取消注释
-                // viewModel.clearError();
+                viewModel.clearError();
                 hideError();
             }
         });
+
+        // 密码显示/隐藏按钮
+        if (passwordLayout != null) {
+            passwordLayout.setEndIconOnClickListener(v -> {
+                togglePasswordVisibility();
+            });
+        }
+
+        // 确认密码显示/隐藏按钮
+        if (confirmPasswordLayout != null) {
+            confirmPasswordLayout.setEndIconOnClickListener(v -> {
+                toggleConfirmPasswordVisibility();
+            });
+        }
     }
 
     private void setupTextWatchers() {
@@ -188,13 +193,9 @@ public class LoginActivity extends AppCompatActivity {
 
         // 初始化时不显示生物识别按钮
         if (biometricButton != null) {
-            // TODO: 待ViewModel实现后恢复完整逻辑
-            biometricButton.setVisibility(initializing ? View.GONE : View.GONE);
-            /*
+            Boolean canUseBiometric = viewModel.canUseBiometric.getValue();
             biometricButton.setVisibility(initializing ? View.GONE :
-                (viewModel.canUseBiometric.getValue() != null && viewModel.canUseBiometric.getValue() ?
-                View.VISIBLE : View.GONE));
-            */
+                (canUseBiometric != null && canUseBiometric ? View.VISIBLE : View.GONE));
         }
 
         updateLoginButtonState();
@@ -212,9 +213,8 @@ public class LoginActivity extends AppCompatActivity {
         }
 
         if (loginButton != null) {
-            // TODO: 待ViewModel实现后恢复完整逻辑
-            // loginButton.setEnabled(enabled && !(viewModel.isLoading.getValue() != null && viewModel.isLoading.getValue()));
-            loginButton.setEnabled(enabled);
+            Boolean isLoading = viewModel.isLoading.getValue();
+            loginButton.setEnabled(enabled && (isLoading == null || !isLoading));
         }
     }
 
@@ -275,16 +275,66 @@ public class LoginActivity extends AppCompatActivity {
         finish();
     }
 
+    private void togglePasswordVisibility() {
+        if (passwordInput == null || passwordLayout == null) return;
+
+        isPasswordVisible = !isPasswordVisible;
+
+        // 切换密码输入类型
+        if (isPasswordVisible) {
+            // 显示密码
+            passwordInput.setInputType(android.text.InputType.TYPE_CLASS_TEXT |
+                    android.text.InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD);
+            passwordLayout.setEndIconDrawable(R.drawable.ic_visibility);
+            passwordLayout.setEndIconContentDescription(getString(R.string.hide_password));
+        } else {
+            // 隐藏密码
+            passwordInput.setInputType(android.text.InputType.TYPE_CLASS_TEXT |
+                    android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
+            passwordLayout.setEndIconDrawable(R.drawable.ic_visibility_off);
+            passwordLayout.setEndIconContentDescription(getString(R.string.show_password));
+        }
+
+        // 将光标移到末尾
+        passwordInput.setSelection(passwordInput.getText().length());
+
+        // 添加动画反馈（getEndIconView 不是公开 API，这里简化处理）
+    }
+
+    private void toggleConfirmPasswordVisibility() {
+        if (confirmPasswordInput == null || confirmPasswordLayout == null) return;
+
+        isConfirmPasswordVisible = !isConfirmPasswordVisible;
+
+        // 切换密码输入类型
+        if (isConfirmPasswordVisible) {
+            // 显示密码
+            confirmPasswordInput.setInputType(android.text.InputType.TYPE_CLASS_TEXT |
+                    android.text.InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD);
+            confirmPasswordLayout.setEndIconDrawable(R.drawable.ic_visibility);
+            confirmPasswordLayout.setEndIconContentDescription(getString(R.string.hide_password));
+        } else {
+            // 隐藏密码
+            confirmPasswordInput.setInputType(android.text.InputType.TYPE_CLASS_TEXT |
+                    android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
+            confirmPasswordLayout.setEndIconDrawable(R.drawable.ic_visibility_off);
+            confirmPasswordLayout.setEndIconContentDescription(getString(R.string.show_password));
+        }
+
+        // 将光标移到末尾
+        confirmPasswordInput.setSelection(confirmPasswordInput.getText().length());
+
+        // 添加动画反馈（getEndIconView 不是公开 API，这里简化处理）
+    }
+
     @Override
     @SuppressLint("MissingSuperCall")
     public void onBackPressed() {
-        // TODO: 待ViewModel实现后恢复完整逻辑
-
         // 如果正在加载，不允许返回
-        if (viewModel.isLoading.getValue() != null && viewModel.isLoading.getValue()) {
+        Boolean isLoading = viewModel.isLoading.getValue();
+        if (isLoading != null && isLoading) {
             return;
         }
-
 
         // 如果是初始化界面，允许退出应用
         if (isInitializing) {

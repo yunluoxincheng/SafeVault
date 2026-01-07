@@ -13,6 +13,7 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
+import androidx.lifecycle.ViewModelProvider;
 import androidx.navigation.Navigation;
 
 import com.google.android.material.appbar.MaterialToolbar;
@@ -26,6 +27,7 @@ import com.ttt.safevault.R;
 import com.ttt.safevault.model.BackendService;
 import com.ttt.safevault.model.PasswordItem;
 import com.ttt.safevault.model.PasswordStrength;
+import com.ttt.safevault.utils.AnimationUtils;
 import com.ttt.safevault.viewmodel.EditPasswordViewModel;
 
 /**
@@ -55,6 +57,7 @@ public class EditPasswordFragment extends Fragment {
     private MaterialButton saveButton;
     private BackendService backendService;
     private int passwordId = -1;
+    private boolean isPasswordVisible = false;
 
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
@@ -65,8 +68,8 @@ public class EditPasswordFragment extends Fragment {
             passwordId = getArguments().getInt("passwordId", -1);
         }
 
-        // TODO: 获取BackendService实例
-        backendService = null; // 通过依赖注入获取
+        // 获取BackendService实例
+        backendService = com.ttt.safevault.ServiceLocator.getInstance().getBackendService();
     }
 
     @Nullable
@@ -110,9 +113,9 @@ public class EditPasswordFragment extends Fragment {
     }
 
     private void initViewModel() {
-        // TODO: 通过ViewModelFactory创建ViewModel
-        // EditPasswordViewModelFactory factory = new EditPasswordViewModelFactory(backendService);
-        // viewModel = new ViewModelProvider(requireActivity(), factory).get(EditPasswordViewModel.class);
+        // 通过ViewModelFactory创建ViewModel
+        ViewModelProvider.Factory factory = new com.ttt.safevault.viewmodel.ViewModelFactory(requireActivity().getApplication());
+        viewModel = new ViewModelProvider(requireActivity(), factory).get(EditPasswordViewModel.class);
 
         viewModel.loadPasswordItem(passwordId);
     }
@@ -170,8 +173,7 @@ public class EditPasswordFragment extends Fragment {
         // 密码输入框的显示/隐藏按钮
         if (passwordLayout != null) {
             passwordLayout.setEndIconOnClickListener(v -> {
-                // 切换密码显示/隐藏
-                // 这里可以添加密码可见性切换逻辑
+                togglePasswordVisibility();
             });
         }
     }
@@ -327,6 +329,33 @@ public class EditPasswordFragment extends Fragment {
         } else {
             Navigation.findNavController(requireView()).navigateUp();
         }
+    }
+
+    private void togglePasswordVisibility() {
+        if (passwordText == null || passwordLayout == null) return;
+
+        isPasswordVisible = !isPasswordVisible;
+
+        // 切换密码输入类型
+        if (isPasswordVisible) {
+            // 显示密码
+            passwordText.setInputType(android.text.InputType.TYPE_CLASS_TEXT |
+                    android.text.InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD);
+            passwordLayout.setEndIconDrawable(R.drawable.ic_visibility);
+            passwordLayout.setEndIconContentDescription(getString(R.string.hide_password));
+        } else {
+            // 隐藏密码
+            passwordText.setInputType(android.text.InputType.TYPE_CLASS_TEXT |
+                    android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
+            passwordLayout.setEndIconDrawable(R.drawable.ic_visibility_off);
+            passwordLayout.setEndIconContentDescription(getString(R.string.show_password));
+        }
+
+        // 将光标移到末尾
+        passwordText.setSelection(passwordText.getText().length());
+
+        // 添加旋转动画反馈
+        // 注意：getEndIconView() 不是公开 API，这里简化处理
     }
 
     private void showError(String error) {

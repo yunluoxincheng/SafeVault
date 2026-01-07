@@ -12,7 +12,7 @@ import androidx.annotation.Nullable;
 import androidx.fragment.app.DialogFragment;
 
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
-import com.google.android.material.materialswitch.MaterialSwitch;
+import com.google.android.material.switchmaterial.SwitchMaterial;
 import com.google.android.material.slider.Slider;
 import com.google.android.material.textfield.TextInputEditText;
 import com.ttt.safevault.R;
@@ -33,10 +33,10 @@ public class GeneratePasswordDialog extends DialogFragment {
     private Slider lengthSlider;
     private TextView lengthText;
     private TextInputEditText passwordText;
-    private MaterialSwitch uppercaseSwitch;
-    private MaterialSwitch lowercaseSwitch;
-    private MaterialSwitch numbersSwitch;
-    private MaterialSwitch symbolsSwitch;
+    private SwitchMaterial uppercaseSwitch;
+    private SwitchMaterial lowercaseSwitch;
+    private SwitchMaterial numbersSwitch;
+    private SwitchMaterial symbolsSwitch;
     private Button regenerateButton;
     private Button useButton;
     private Button cancelButton;
