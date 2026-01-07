@@ -2,6 +2,8 @@ package com.ttt.safevault.ui;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -17,6 +19,7 @@ import androidx.navigation.ui.AppBarConfiguration;
 import androidx.navigation.ui.NavigationUI;
 
 import com.google.android.material.appbar.MaterialToolbar;
+import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.ttt.safevault.R;
 import com.ttt.safevault.model.BackendService;
@@ -25,7 +28,7 @@ import com.ttt.safevault.viewmodel.PasswordListViewModel;
 
 /**
  * 主Activity
- * 作为应用的主容器，承载各个Fragment
+ * 作为应用的主容器，承载各个Fragment，支持底部导航
  */
 public class MainActivity extends AppCompatActivity {
 
@@ -34,6 +37,13 @@ public class MainActivity extends AppCompatActivity {
     private PasswordListViewModel listViewModel;
     private BackendService backendService;
     private SearchHistoryManager searchHistoryManager;
+    private BottomNavigationView bottomNavigationView;
+    private FloatingActionButton fabAddPassword;
+
+    // Search debounce handler
+    private Handler searchDebounceHandler;
+    private Runnable searchDebounceRunnable;
+    private static final int SEARCH_DEBOUNCE_DELAY_MS = 150; // 150ms debounce delay
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -46,11 +56,15 @@ public class MainActivity extends AppCompatActivity {
         // 获取BackendService实例
         backendService = com.ttt.safevault.ServiceLocator.getInstance().getBackendService();
 
+        // 初始化搜索 debounce handler
+        searchDebounceHandler = new Handler(Looper.getMainLooper());
+
         // 初始化搜索历史管理器
         searchHistoryManager = SearchHistoryManager.getInstance(this);
 
         initNavigation();
         initToolbar();
+        initBottomNavigation();
         initFab();
         initViewModel();
     }
@@ -61,9 +75,11 @@ public class MainActivity extends AppCompatActivity {
         if (navHostFragment != null) {
             navController = navHostFragment.getNavController();
 
-            // 设置顶级目标
+            // 设置顶级目的地（底部导航的三个选项卡）
             appBarConfiguration = new AppBarConfiguration.Builder(
-                    R.id.passwordListFragment
+                    R.id.nav_passwords,
+                    R.id.nav_generator,
+                    R.id.nav_settings
             ).build();
         }
     }
@@ -73,17 +89,63 @@ public class MainActivity extends AppCompatActivity {
         setSupportActionBar(toolbar);
 
         if (navController != null) {
-            NavigationUI.setupActionBarWithNavController(this, navController, appBarConfiguration);
+            // NavigationUI 会自动根据导航图配置 toolbar
+            NavigationUI.setupWithNavController(toolbar, navController, appBarConfiguration);
+        }
+
+        // 监听导航变化，动态设置标题和菜单
+        if (navController != null) {
+            navController.addOnDestinationChangedListener((controller, destination, arguments) -> {
+                // 清除并重新创建菜单
+                invalidateOptionsMenu();
+
+                // 动态设置编辑页面的标题
+                if (destination.getId() == R.id.editPasswordFragment && arguments != null) {
+                    int passwordId = arguments.getInt("passwordId", -1);
+                    boolean isNew = passwordId == -1;
+                    String title = isNew ? "添加密码" : "编辑密码";
+                    toolbar.setTitle(title);
+                }
+            });
+        }
+    }
+
+    private void initBottomNavigation() {
+        bottomNavigationView = findViewById(R.id.bottom_navigation);
+        if (bottomNavigationView != null && navController != null) {
+            // 设置底部导航与 NavController 的关联
+            NavigationUI.setupWithNavController(bottomNavigationView, navController);
+
+            // 监听导航变化，控制底部导航显示
+            navController.addOnDestinationChangedListener((controller, destination, arguments) -> {
+                // 只在顶级目的地显示底部导航
+                int destinationId = destination.getId();
+                boolean isTopLevelDestination = destinationId == R.id.nav_passwords
+                        || destinationId == R.id.nav_generator
+                        || destinationId == R.id.nav_settings;
+
+                bottomNavigationView.setVisibility(isTopLevelDestination ? View.VISIBLE : View.GONE);
+            });
         }
     }
 
     private void initFab() {
-        FloatingActionButton fab = findViewById(R.id.fab_add);
-        if (fab != null) {
-            fab.setOnClickListener(v -> {
-                // 导航到添加密码页面
-                if (navController != null) {
-                    navController.navigate(R.id.action_passwordListFragment_to_editPasswordFragment);
+        fabAddPassword = findViewById(R.id.fab_add_password);
+        if (fabAddPassword != null && navController != null) {
+            fabAddPassword.setOnClickListener(v -> {
+                // 导航到编辑密码页面（新建模式）
+                navController.navigate(R.id.action_passwordListFragment_to_editPasswordFragment);
+            });
+
+            // 监听导航变化，只在密码库页面显示 FAB
+            navController.addOnDestinationChangedListener((controller, destination, arguments) -> {
+                int destinationId = destination.getId();
+                boolean shouldShowFab = destinationId == R.id.nav_passwords;
+
+                if (shouldShowFab) {
+                    fabAddPassword.show();
+                } else {
+                    fabAddPassword.hide();
                 }
             });
         }
@@ -93,27 +155,34 @@ public class MainActivity extends AppCompatActivity {
         // 通过ViewModelFactory获取ViewModel
         ViewModelProvider.Factory factory = new com.ttt.safevault.viewmodel.ViewModelFactory(getApplication());
         listViewModel = new ViewModelProvider(this, factory).get(PasswordListViewModel.class);
-
-        // 观察搜索状态，控制FAB显示
-        listViewModel.isSearching.observe(this, isSearching -> {
-            FloatingActionButton fab = findViewById(R.id.fab_add);
-            if (fab != null) {
-                fab.setVisibility(isSearching ? View.GONE : View.VISIBLE);
-            }
-        });
     }
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
-        getMenuInflater().inflate(R.menu.main_menu, menu);
+        // 根据当前页面决定显示哪些菜单项
+        int currentDestinationId = 0;
+        if (navController != null) {
+            currentDestinationId = navController.getCurrentDestination().getId();
+        }
 
-        // 设置搜索菜单项
-        MenuItem searchItem = menu.findItem(R.id.action_search);
-        if (searchItem != null) {
-            androidx.appcompat.widget.SearchView searchView = (androidx.appcompat.widget.SearchView) searchItem.getActionView();
-            if (searchView != null) {
-                setupSearchView(searchView);
+        // 只在密码库页面显示搜索
+        if (currentDestinationId == R.id.nav_passwords) {
+            // 检查菜单是否已经存在，避免重复添加
+            if (menu.findItem(R.id.action_search) == null) {
+                getMenuInflater().inflate(R.menu.main_menu, menu);
+
+                // 设置搜索菜单项
+                MenuItem searchItem = menu.findItem(R.id.action_search);
+                if (searchItem != null) {
+                    androidx.appcompat.widget.SearchView searchView = (androidx.appcompat.widget.SearchView) searchItem.getActionView();
+                    if (searchView != null) {
+                        setupSearchView(searchView);
+                    }
+                }
             }
+        } else {
+            // 非密码库页面，清空菜单
+            menu.clear();
         }
 
         return true;
@@ -133,6 +202,11 @@ public class MainActivity extends AppCompatActivity {
         searchView.setOnQueryTextListener(new androidx.appcompat.widget.SearchView.OnQueryTextListener() {
             @Override
             public boolean onQueryTextSubmit(String query) {
+                // 取消待执行的 debounce 搜索
+                if (searchDebounceRunnable != null) {
+                    searchDebounceHandler.removeCallbacks(searchDebounceRunnable);
+                }
+
                 if (listViewModel != null) {
                     listViewModel.search(query);
                 }
@@ -147,21 +221,38 @@ public class MainActivity extends AppCompatActivity {
 
             @Override
             public boolean onQueryTextChange(String newText) {
-                if (listViewModel != null) {
-                    listViewModel.search(newText);
+                // 取消之前的搜索任务
+                if (searchDebounceRunnable != null) {
+                    searchDebounceHandler.removeCallbacks(searchDebounceRunnable);
                 }
 
-                // 可以在这里实现搜索建议功能
-                // List<String> suggestions = searchHistoryManager != null ?
-                //         searchHistoryManager.getSearchSuggestions(newText) : new ArrayList<>();
+                // 创建新的延迟搜索任务
+                searchDebounceRunnable = () -> {
+                    if (listViewModel != null) {
+                        listViewModel.search(newText);
+                    }
+                };
+
+                // 延迟执行搜索（debounce）
+                searchDebounceHandler.postDelayed(searchDebounceRunnable, SEARCH_DEBOUNCE_DELAY_MS);
 
                 return true;
             }
         });
 
         searchView.setOnCloseListener(() -> {
-            if (listViewModel != null) {
-                listViewModel.clearSearch();
+            try {
+                // 取消待执行的 debounce 搜索
+                if (searchDebounceRunnable != null) {
+                    searchDebounceHandler.removeCallbacks(searchDebounceRunnable);
+                }
+
+                // 清除搜索
+                if (listViewModel != null) {
+                    listViewModel.clearSearch();
+                }
+            } catch (Exception e) {
+                // 忽略异常，防止闪退
             }
             return true;
         });
@@ -176,20 +267,6 @@ public class MainActivity extends AppCompatActivity {
     }
 
     @Override
-    public boolean onOptionsItemSelected(@NonNull MenuItem item) {
-        if (item.getItemId() == R.id.action_settings) {
-            // 导航到设置页面
-            if (navController != null) {
-                navController.navigate(R.id.action_passwordListFragment_to_settingsFragment);
-            }
-            return true;
-        }
-
-        return NavigationUI.onNavDestinationSelected(item, navController)
-                || super.onOptionsItemSelected(item);
-    }
-
-    @Override
     public boolean onSupportNavigateUp() {
         return NavigationUI.navigateUp(navController, appBarConfiguration)
                 || super.onSupportNavigateUp();
@@ -198,12 +275,33 @@ public class MainActivity extends AppCompatActivity {
     @Override
     public void onBackPressed() {
         // 如果在搜索状态，退出搜索
-        Boolean isSearching = listViewModel.isSearching.getValue();
+        Boolean isSearching = listViewModel != null ? listViewModel.isSearching.getValue() : null;
         if (isSearching != null && isSearching) {
-            listViewModel.clearSearch();
+            // 取消待执行的 debounce 搜索
+            if (searchDebounceRunnable != null) {
+                searchDebounceHandler.removeCallbacks(searchDebounceRunnable);
+            }
+
+            if (listViewModel != null) {
+                listViewModel.clearSearch();
+            }
             return;
         }
 
+        // 如果在非顶级页面，正常返回
+        if (navController != null && navController.getCurrentDestination() != null) {
+            int currentDestinationId = navController.getCurrentDestination().getId();
+            boolean isTopLevelDestination = currentDestinationId == R.id.nav_passwords
+                    || currentDestinationId == R.id.nav_generator
+                    || currentDestinationId == R.id.nav_settings;
+
+            if (!isTopLevelDestination) {
+                super.onBackPressed();
+                return;
+            }
+        }
+
+        // 如果在顶级页面，退出应用
         super.onBackPressed();
     }
 
@@ -248,5 +346,15 @@ public class MainActivity extends AppCompatActivity {
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
         startActivity(intent);
         finish();
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+
+        // 清理 debounce handler
+        if (searchDebounceHandler != null) {
+            searchDebounceHandler.removeCallbacksAndMessages(null);
+        }
     }
 }

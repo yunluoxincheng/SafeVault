@@ -2,6 +2,9 @@ package com.ttt.safevault.ui;
 
 import android.os.Bundle;
 import android.view.LayoutInflater;
+import android.view.Menu;
+import android.view.MenuInflater;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
@@ -9,6 +12,7 @@ import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.appcompat.widget.PopupMenu;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.navigation.Navigation;
@@ -39,6 +43,7 @@ public class PasswordListFragment extends Fragment implements PasswordListAdapte
     private TextView emptyText;
     private TextView emptySubtext;
     private Button emptyAddButton;
+    private Button clearSearchButton;
     private View loadingLayout;
     private PasswordListAdapter adapter;
     private BackendService backendService;
@@ -76,6 +81,7 @@ public class PasswordListFragment extends Fragment implements PasswordListAdapte
         emptyText = view.findViewById(R.id.empty_text);
         emptySubtext = view.findViewById(R.id.empty_subtext);
         emptyAddButton = view.findViewById(R.id.empty_add_button);
+        clearSearchButton = view.findViewById(R.id.clear_search_button);
         loadingLayout = view.findViewById(R.id.loading_layout);
 
         // 设置空状态按钮点击事件
@@ -83,6 +89,14 @@ public class PasswordListFragment extends Fragment implements PasswordListAdapte
             emptyAddButton.setOnClickListener(v -> {
                 AnimationUtils.buttonPressFeedback(v);
                 navigateToAddPassword();
+            });
+        }
+
+        // 设置清除搜索按钮点击事件
+        if (clearSearchButton != null) {
+            clearSearchButton.setOnClickListener(v -> {
+                AnimationUtils.buttonPressFeedback(v);
+                viewModel.clearSearch();
             });
         }
     }
@@ -156,10 +170,32 @@ public class PasswordListFragment extends Fragment implements PasswordListAdapte
 
             if (isEmpty && emptyText != null) {
                 Boolean isSearching = viewModel.isSearching.getValue();
-                if (isSearching != null && isSearching) {
+                boolean isSearchActive = isSearching != null && isSearching;
+
+                if (isSearchActive) {
+                    // 搜索无结果状态
                     emptyText.setText(R.string.no_search_results);
+                    if (emptySubtext != null) {
+                        emptySubtext.setText(R.string.no_search_results_description);
+                    }
+                    if (emptyAddButton != null) {
+                        emptyAddButton.setVisibility(View.GONE);
+                    }
+                    if (clearSearchButton != null) {
+                        clearSearchButton.setVisibility(View.VISIBLE);
+                    }
                 } else {
+                    // 空密码库状态
                     emptyText.setText(R.string.no_passwords);
+                    if (emptySubtext != null) {
+                        emptySubtext.setText(R.string.add_first_password);
+                    }
+                    if (emptyAddButton != null) {
+                        emptyAddButton.setVisibility(View.VISIBLE);
+                    }
+                    if (clearSearchButton != null) {
+                        clearSearchButton.setVisibility(View.GONE);
+                    }
                 }
 
                 // 添加淡入动画
@@ -178,10 +214,32 @@ public class PasswordListFragment extends Fragment implements PasswordListAdapte
 
             if (isEmpty && emptyText != null) {
                 Boolean isSearching = viewModel.isSearching.getValue();
-                if (isSearching != null && isSearching) {
+                boolean isSearchActive = isSearching != null && isSearching;
+
+                if (isSearchActive) {
+                    // 搜索无结果状态
                     emptyText.setText(R.string.no_search_results);
+                    if (emptySubtext != null) {
+                        emptySubtext.setText(R.string.no_search_results_description);
+                    }
+                    if (emptyAddButton != null) {
+                        emptyAddButton.setVisibility(View.GONE);
+                    }
+                    if (clearSearchButton != null) {
+                        clearSearchButton.setVisibility(View.VISIBLE);
+                    }
                 } else {
+                    // 空密码库状态
                     emptyText.setText(R.string.no_passwords);
+                    if (emptySubtext != null) {
+                        emptySubtext.setText(R.string.add_first_password);
+                    }
+                    if (emptyAddButton != null) {
+                        emptyAddButton.setVisibility(View.VISIBLE);
+                    }
+                    if (clearSearchButton != null) {
+                        clearSearchButton.setVisibility(View.GONE);
+                    }
                 }
 
                 // 添加淡入动画
@@ -200,6 +258,31 @@ public class PasswordListFragment extends Fragment implements PasswordListAdapte
                 .setMessage(error)
                 .setPositiveButton("确定", null)
                 .show();
+    }
+
+    /**
+     * 显示更多选项弹出菜单
+     */
+    private void showMoreOptionsMenu(PasswordItem item, View anchorView) {
+        PopupMenu popup = new PopupMenu(requireContext(), anchorView);
+        popup.getMenuInflater().inflate(R.menu.password_item_menu, popup.getMenu());
+
+        popup.setOnMenuItemClickListener(menuItem -> {
+            int itemId = menuItem.getItemId();
+            if (itemId == R.id.menu_copy) {
+                onItemCopyClick(item);
+                return true;
+            } else if (itemId == R.id.menu_edit) {
+                onItemEditClick(item);
+                return true;
+            } else if (itemId == R.id.menu_delete) {
+                onItemDeleteClick(item);
+                return true;
+            }
+            return false;
+        });
+
+        popup.show();
     }
 
     // PasswordListAdapter.OnItemClickListener 实现
@@ -238,6 +321,41 @@ public class PasswordListFragment extends Fragment implements PasswordListAdapte
                 .setNegativeButton("取消", null)
                 .setPositiveButton("删除", (dialog, which) -> {
                     viewModel.deletePasswordItem(item.getId());
+                })
+                .show();
+    }
+
+    @Override
+    public void onItemLongClick(PasswordItem item) {
+        // 长按显示上下文菜单（可以添加振动反馈）
+        showItemContextMenu(item);
+    }
+
+    @Override
+    public void onItemMoreClick(PasswordItem item, View anchorView) {
+        // 点击更多选项按钮显示弹出菜单
+        showMoreOptionsMenu(item, anchorView);
+    }
+
+    /**
+     * 显示项目上下文菜单
+     */
+    private void showItemContextMenu(PasswordItem item) {
+        // 显示复制、编辑、删除选项
+        new MaterialAlertDialogBuilder(requireContext())
+                .setTitle(item.getDisplayName())
+                .setItems(new CharSequence[]{"复制密码", "编辑", "删除"}, (dialog, which) -> {
+                    switch (which) {
+                        case 0:
+                            onItemCopyClick(item);
+                            break;
+                        case 1:
+                            onItemEditClick(item);
+                            break;
+                        case 2:
+                            onItemDeleteClick(item);
+                            break;
+                    }
                 })
                 .show();
     }

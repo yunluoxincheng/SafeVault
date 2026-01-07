@@ -6,7 +6,6 @@ import android.text.TextWatcher;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -16,9 +15,7 @@ import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.navigation.Navigation;
 
-import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.button.MaterialButton;
-import com.google.android.material.card.MaterialCardView;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.progressindicator.LinearProgressIndicator;
 import com.google.android.material.textfield.TextInputEditText;
@@ -37,7 +34,6 @@ import com.ttt.safevault.viewmodel.EditPasswordViewModel;
 public class EditPasswordFragment extends Fragment {
 
     private EditPasswordViewModel viewModel;
-    private MaterialToolbar toolbar;
     private TextInputLayout titleLayout;
     private TextInputEditText titleText;
     private TextInputLayout usernameLayout;
@@ -49,8 +45,11 @@ public class EditPasswordFragment extends Fragment {
     private TextInputLayout notesLayout;
     private TextInputEditText notesText;
     private MaterialButton generatePasswordButton;
-    private MaterialCardView passwordStrengthCard;
-    private ProgressBar passwordStrengthBar;
+    private View passwordStrengthContainer;
+    private View strengthBar1;
+    private View strengthBar2;
+    private View strengthBar3;
+    private View strengthBar4;
     private TextView passwordStrengthText;
     private View loadingOverlay;
     private LinearProgressIndicator progressIndicator;
@@ -85,14 +84,12 @@ public class EditPasswordFragment extends Fragment {
 
         initViews(view);
         initViewModel();
-        setupToolbar();
         setupTextWatchers();
         setupClickListeners();
         setupObservers();
     }
 
     private void initViews(View view) {
-        toolbar = view.findViewById(R.id.toolbar);
         titleLayout = view.findViewById(R.id.title_layout);
         titleText = view.findViewById(R.id.title_text);
         usernameLayout = view.findViewById(R.id.username_layout);
@@ -104,8 +101,11 @@ public class EditPasswordFragment extends Fragment {
         notesLayout = view.findViewById(R.id.notes_layout);
         notesText = view.findViewById(R.id.notes_text);
         generatePasswordButton = view.findViewById(R.id.btn_generate_password);
-        passwordStrengthCard = view.findViewById(R.id.password_strength_card);
-        passwordStrengthBar = view.findViewById(R.id.password_strength_bar);
+        passwordStrengthContainer = view.findViewById(R.id.password_strength_container);
+        strengthBar1 = view.findViewById(R.id.strength_bar_1);
+        strengthBar2 = view.findViewById(R.id.strength_bar_2);
+        strengthBar3 = view.findViewById(R.id.strength_bar_3);
+        strengthBar4 = view.findViewById(R.id.strength_bar_4);
         passwordStrengthText = view.findViewById(R.id.password_strength_text);
         loadingOverlay = view.findViewById(R.id.loading_overlay);
         progressIndicator = view.findViewById(R.id.progress_indicator);
@@ -118,18 +118,6 @@ public class EditPasswordFragment extends Fragment {
         viewModel = new ViewModelProvider(requireActivity(), factory).get(EditPasswordViewModel.class);
 
         viewModel.loadPasswordItem(passwordId);
-    }
-
-    private void setupToolbar() {
-        if (toolbar != null) {
-            toolbar.setNavigationOnClickListener(v -> {
-                handleBackNavigation();
-            });
-
-            // 设置标题
-            boolean isNew = viewModel.isNewPassword.getValue() != null && viewModel.isNewPassword.getValue();
-            toolbar.setTitle(isNew ? "新建密码" : "编辑密码");
-        }
     }
 
     private void setupTextWatchers() {
@@ -212,13 +200,6 @@ public class EditPasswordFragment extends Fragment {
                 viewModel.clearGeneratedPassword();
             }
         });
-
-        // 观察是否为新密码
-        viewModel.isNewPassword.observe(getViewLifecycleOwner(), isNew -> {
-            if (toolbar != null) {
-                toolbar.setTitle(isNew != null && isNew ? "新建密码" : "编辑密码");
-            }
-        });
     }
 
     private void updatePasswordItem(PasswordItem item) {
@@ -254,32 +235,62 @@ public class EditPasswordFragment extends Fragment {
     }
 
     private void updatePasswordStrength() {
-        if (passwordText == null || passwordStrengthBar == null || passwordStrengthText == null) {
+        if (passwordText == null || passwordStrengthText == null) {
             return;
         }
 
         String password = passwordText.getText().toString();
         if (password.isEmpty()) {
-            passwordStrengthCard.setVisibility(View.GONE);
+            if (passwordStrengthContainer != null) {
+                passwordStrengthContainer.setVisibility(View.GONE);
+            }
             return;
         }
 
-        passwordStrengthCard.setVisibility(View.VISIBLE);
+        if (passwordStrengthContainer != null) {
+            passwordStrengthContainer.setVisibility(View.VISIBLE);
+        }
+
         var strength = viewModel.checkPasswordStrength(password);
         var description = viewModel.getPasswordStrengthDescription(strength);
 
-        passwordStrengthBar.setProgress((strength.score() + 1) * 33); // 0-100
-        passwordStrengthText.setText(description);
+        // 重置所有强度条
+        if (strengthBar1 != null) strengthBar1.setAlpha(0.3f);
+        if (strengthBar2 != null) strengthBar2.setAlpha(0.3f);
+        if (strengthBar3 != null) strengthBar3.setAlpha(0.3f);
+        if (strengthBar4 != null) strengthBar4.setAlpha(0.3f);
 
-        // 设置颜色
-        var colorRes = switch (strength.level()) {
-            case WEAK -> R.color.strength_weak;
-            case MEDIUM -> R.color.strength_medium;
-            case STRONG -> R.color.strength_strong;
-        };
+        // 根据强度点亮相应的段
+        int strengthColor;
+        switch (strength.level()) {
+            case WEAK:
+                if (strengthBar1 != null) strengthBar1.setAlpha(1.0f);
+                strengthColor = getResources().getColor(R.color.strength_weak, null);
+                break;
+            case MEDIUM:
+                if (strengthBar1 != null) strengthBar1.setAlpha(1.0f);
+                if (strengthBar2 != null) strengthBar2.setAlpha(1.0f);
+                strengthColor = getResources().getColor(R.color.strength_medium, null);
+                break;
+            case STRONG:
+                if (strengthBar1 != null) strengthBar1.setAlpha(1.0f);
+                if (strengthBar2 != null) strengthBar2.setAlpha(1.0f);
+                if (strengthBar3 != null) strengthBar3.setAlpha(1.0f);
+                strengthColor = getResources().getColor(R.color.strength_strong, null);
+                break;
+            default:
+                if (strengthBar1 != null) strengthBar1.setAlpha(1.0f);
+                if (strengthBar2 != null) strengthBar2.setAlpha(1.0f);
+                if (strengthBar3 != null) strengthBar3.setAlpha(1.0f);
+                if (strengthBar4 != null) strengthBar4.setAlpha(1.0f);
+                strengthColor = getResources().getColor(R.color.strength_very_strong, null);
+                break;
+        }
 
-        passwordStrengthBar.setProgressTintList(getResources().getColorStateList(colorRes));
-        passwordStrengthText.setTextColor(getResources().getColor(colorRes));
+        if (passwordStrengthText != null) {
+            passwordStrengthText.setText(description);
+            passwordStrengthText.setTextColor(strengthColor);
+        }
     }
 
     private void updateSaveButtonState() {

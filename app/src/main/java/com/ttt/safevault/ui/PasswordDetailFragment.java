@@ -16,7 +16,6 @@ import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.navigation.Navigation;
 
-import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.card.MaterialCardView;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
@@ -35,7 +34,6 @@ import com.ttt.safevault.viewmodel.PasswordDetailViewModel;
 public class PasswordDetailFragment extends Fragment {
 
     private PasswordDetailViewModel viewModel;
-    private MaterialToolbar toolbar;
     private TextInputLayout titleLayout;
     private TextInputEditText titleText;
     private TextView usernameText;
@@ -84,13 +82,11 @@ public class PasswordDetailFragment extends Fragment {
 
         initViews(view);
         initViewModel();
-        setupToolbar();
         setupClickListeners();
         setupObservers();
     }
 
     private void initViews(View view) {
-        toolbar = view.findViewById(R.id.toolbar);
         titleLayout = view.findViewById(R.id.title_layout);
         titleText = view.findViewById(R.id.title_text);
         usernameText = view.findViewById(R.id.username_text);
@@ -119,22 +115,6 @@ public class PasswordDetailFragment extends Fragment {
 
         if (passwordId >= 0) {
             viewModel.loadPasswordItem(passwordId);
-        }
-    }
-
-    private void setupToolbar() {
-        if (toolbar != null) {
-            toolbar.setNavigationOnClickListener(v -> {
-                Navigation.findNavController(v).navigateUp();
-            });
-
-            toolbar.setOnMenuItemClickListener(item -> {
-                if (item.getItemId() == R.id.action_edit) {
-                    navigateToEdit();
-                    return true;
-                }
-                return false;
-            });
         }
     }
 
@@ -254,11 +234,6 @@ public class PasswordDetailFragment extends Fragment {
             notesLayout.setVisibility(View.VISIBLE);
         } else {
             notesLayout.setVisibility(View.GONE);
-        }
-
-        // 更新Toolbar标题
-        if (toolbar != null) {
-            toolbar.setTitle(item.getDisplayName());
         }
     }
 

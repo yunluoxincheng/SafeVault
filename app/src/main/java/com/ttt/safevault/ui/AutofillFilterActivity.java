@@ -103,6 +103,16 @@ public class AutofillFilterActivity extends AppCompatActivity {
             public void onItemDeleteClick(PasswordItem item) {
                 // 不支持在自动填充界面删除
             }
+
+            @Override
+            public void onItemLongClick(PasswordItem item) {
+                // 不支持长按操作
+            }
+
+            @Override
+            public void onItemMoreClick(PasswordItem item, android.view.View anchorView) {
+                // 不支持更多选项
+            }
         }, false); // 禁用动画
 
         recyclerView.setLayoutManager(new LinearLayoutManager(this));

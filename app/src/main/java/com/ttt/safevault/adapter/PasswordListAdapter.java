@@ -3,6 +3,7 @@ package com.ttt.safevault.adapter;
 import android.animation.AnimatorSet;
 import android.animation.ObjectAnimator;
 import android.os.Bundle;
+import android.text.format.DateUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -19,15 +20,17 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.material.card.MaterialCardView;
 import com.google.android.material.color.MaterialColors;
+import com.google.android.material.imageview.ShapeableImageView;
 import com.ttt.safevault.R;
 import com.ttt.safevault.model.PasswordItem;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 /**
  * 密码列表的RecyclerView适配器
- * 支持点击动画、快捷操作等功能
+ * 支持现代化的卡片式布局、点击动画、快捷操作等功能
  */
 public class PasswordListAdapter extends ListAdapter<PasswordItem, PasswordListAdapter.ViewHolder> {
 
@@ -64,25 +67,21 @@ public class PasswordListAdapter extends ListAdapter<PasswordItem, PasswordListA
      */
     static class ViewHolder extends RecyclerView.ViewHolder {
         private final MaterialCardView cardView;
+        private final ShapeableImageView iconImage;
         private final TextView titleText;
         private final TextView usernameText;
-        private final TextView urlText;
-        private final ImageButton copyButton;
-        private final ImageButton editButton;
-        private final ImageButton deleteButton;
-        private final ImageView faviconView;
+        private final TextView timestampText;
+        private final ImageButton moreButton;
 
         public ViewHolder(@NonNull View itemView) {
             super(itemView);
 
             cardView = itemView.findViewById(R.id.card_view);
+            iconImage = itemView.findViewById(R.id.icon_image);
             titleText = itemView.findViewById(R.id.title_text);
             usernameText = itemView.findViewById(R.id.username_text);
-            urlText = itemView.findViewById(R.id.url_text);
-            copyButton = itemView.findViewById(R.id.btn_copy);
-            editButton = itemView.findViewById(R.id.btn_edit);
-            deleteButton = itemView.findViewById(R.id.btn_delete);
-            faviconView = itemView.findViewById(R.id.favicon_image);
+            timestampText = itemView.findViewById(R.id.timestamp_text);
+            moreButton = itemView.findViewById(R.id.more_button);
         }
 
         public void bind(PasswordItem item, OnItemClickListener listener, boolean animate) {
@@ -97,31 +96,17 @@ public class PasswordListAdapter extends ListAdapter<PasswordItem, PasswordListA
                 usernameText.setVisibility(View.GONE);
             }
 
-            // 设置URL
-            if (item.getUrl() != null && !item.getUrl().isEmpty()) {
-                String displayUrl = formatUrl(item.getUrl());
-                urlText.setText(displayUrl);
-                urlText.setVisibility(View.VISIBLE);
+            // 设置图标 - 使用首字母或默认图标
+            setupIcon(item);
 
-                // 设置网站图标
-                if (faviconView != null) {
-                    faviconView.setVisibility(View.VISIBLE);
-                    faviconView.setImageResource(R.drawable.ic_public);
-                }
-            } else {
-                urlText.setVisibility(View.GONE);
-                if (faviconView != null) {
-                    faviconView.setVisibility(View.GONE);
-                }
-            }
+            // 设置时间戳
+            setupTimestamp(item);
 
-            // 如果没有URL，显示默认图标
-            if (faviconView != null && (item.getUrl() == null || item.getUrl().isEmpty())) {
-                faviconView.setVisibility(View.VISIBLE);
-                faviconView.setImageResource(R.drawable.ic_password);
-            }
+            // 设置无障碍内容描述
+            String contentDescription = buildContentDescription(item);
+            cardView.setContentDescription(contentDescription);
 
-            // 设置点击事件
+            // 设置卡片点击事件
             cardView.setOnClickListener(v -> {
                 if (animate) {
                     animateCardClick(cardView);
@@ -131,67 +116,123 @@ public class PasswordListAdapter extends ListAdapter<PasswordItem, PasswordListA
                 }
             });
 
-            // 复制按钮
-            copyButton.setOnClickListener(v -> {
-                if (animate) {
-                    animateButtonClick(copyButton);
-                }
+            // 设置长按事件
+            cardView.setOnLongClickListener(v -> {
                 if (listener != null) {
-                    listener.onItemCopyClick(item);
+                    listener.onItemLongClick(item);
+                    return true;
                 }
+                return false;
             });
 
-            // 编辑按钮
-            editButton.setOnClickListener(v -> {
-                if (animate) {
-                    animateButtonClick(editButton);
-                }
-                if (listener != null) {
-                    listener.onItemEditClick(item);
-                }
-            });
-
-            // 删除按钮 - 修复原来的错误（之前错误地使用了editButton）
-            deleteButton.setOnClickListener(v -> {
-                if (animate) {
-                    animateButtonClick(deleteButton);
-                }
-                if (listener != null) {
-                    listener.onItemDeleteClick(item);
-                }
-            });
+            // 更多选项按钮
+            if (moreButton != null) {
+                moreButton.setOnClickListener(v -> {
+                    if (animate) {
+                        animateButtonClick(moreButton);
+                    }
+                    if (listener != null) {
+                        listener.onItemMoreClick(item, moreButton);
+                    }
+                });
+            }
 
             // 设置过渡动画名称
             ViewCompat.setTransitionName(cardView, "password_item_" + item.getId());
         }
 
-        private String formatUrl(String url) {
-            if (url == null) return "";
+        /**
+         * 设置图标
+         */
+        private void setupIcon(PasswordItem item) {
+            if (iconImage == null) return;
 
-            // 移除协议前缀
-            String formattedUrl = url.replace("https://", "")
-                                     .replace("http://", "")
-                                     .replace("www.", "");
+            // 如果有URL，可以尝试加载网站图标（这里暂时使用默认图标）
+            // TODO: 实现网站图标加载
+            iconImage.setVisibility(View.VISIBLE);
+            iconImage.setImageResource(R.drawable.ic_password);
+        }
 
-            // 移除路径
-            int slashIndex = formattedUrl.indexOf('/');
-            if (slashIndex > 0) {
-                formattedUrl = formattedUrl.substring(0, slashIndex);
+        /**
+         * 设置时间戳
+         */
+        private void setupTimestamp(PasswordItem item) {
+            if (timestampText == null) return;
+
+            long lastModified = item.getUpdatedAt();
+            if (lastModified > 0) {
+                String timeString = formatRelativeTime(lastModified);
+                timestampText.setText(timeString);
+                timestampText.setVisibility(View.VISIBLE);
+            } else {
+                timestampText.setVisibility(View.GONE);
+            }
+        }
+
+        /**
+         * 格式化相对时间
+         */
+        private String formatRelativeTime(long timestamp) {
+            long now = System.currentTimeMillis();
+            long diff = now - timestamp;
+
+            // 转换为分钟
+            long minutes = TimeUnit.MILLISECONDS.toMinutes(diff);
+            if (minutes < 1) {
+                return "刚刚";
+            } else if (minutes < 60) {
+                return minutes + "分钟前";
             }
 
-            return formattedUrl;
+            // 转换为小时
+            long hours = TimeUnit.MILLISECONDS.toHours(diff);
+            if (hours < 24) {
+                return hours + "小时前";
+            }
+
+            // 转换为天
+            long days = TimeUnit.MILLISECONDS.toDays(diff);
+            if (days < 7) {
+                return days + "天前";
+            }
+
+            // 超过7天显示日期
+            return DateUtils.formatDateTime(
+                    itemView.getContext(),
+                    timestamp,
+                    DateUtils.FORMAT_SHOW_DATE | DateUtils.FORMAT_NUMERIC_DATE
+            );
+        }
+
+        /**
+         * 构建无障碍内容描述
+         */
+        private String buildContentDescription(PasswordItem item) {
+            StringBuilder sb = new StringBuilder();
+            sb.append("密码项\n");
+            sb.append("标题: ").append(item.getDisplayName()).append("\n");
+
+            if (item.getUsername() != null && !item.getUsername().isEmpty()) {
+                sb.append("用户名: ").append(item.getUsername()).append("\n");
+            }
+
+            if (timestampText.getVisibility() == View.VISIBLE) {
+                sb.append("最后修改: ").append(timestampText.getText());
+            }
+
+            return sb.toString();
         }
 
         private void animateCardClick(MaterialCardView card) {
             AnimatorSet animatorSet = new AnimatorSet();
 
             // 缩放动画
-            ObjectAnimator scaleX = ObjectAnimator.ofFloat(card, "scaleX", 1f, 0.95f, 1f);
-            ObjectAnimator scaleY = ObjectAnimator.ofFloat(card, "scaleY", 1f, 0.95f, 1f);
+            ObjectAnimator scaleX = ObjectAnimator.ofFloat(card, "scaleX", 1f, 0.98f, 1f);
+            ObjectAnimator scaleY = ObjectAnimator.ofFloat(card, "scaleY", 1f, 0.98f, 1f);
 
-            // 背景颜色动画
-            int currentColor = MaterialColors.getColor(card, android.R.attr.colorBackground);
-            int pressedColor = MaterialColors.getColor(card, com.google.android.material.R.attr.colorPrimary);
+            // 背景颜色动画 - 使用更柔和的颜色变化
+            int currentColor = MaterialColors.getColor(card, com.google.android.material.R.attr.colorSurfaceVariant);
+            int pressedColor = MaterialColors.getColor(card, com.google.android.material.R.attr.colorPrimaryContainer);
 
             ObjectAnimator backgroundColor = ObjectAnimator.ofArgb(
                     card, "cardBackgroundColor", currentColor, pressedColor, currentColor);
@@ -202,8 +243,8 @@ public class PasswordListAdapter extends ListAdapter<PasswordItem, PasswordListA
         }
 
         private void animateButtonClick(ImageButton button) {
-            ObjectAnimator scaleX = ObjectAnimator.ofFloat(button, "scaleX", 1f, 0.8f, 1f);
-            ObjectAnimator scaleY = ObjectAnimator.ofFloat(button, "scaleY", 1f, 0.8f, 1f);
+            ObjectAnimator scaleX = ObjectAnimator.ofFloat(button, "scaleX", 1f, 0.85f, 1f);
+            ObjectAnimator scaleY = ObjectAnimator.ofFloat(button, "scaleY", 1f, 0.85f, 1f);
 
             AnimatorSet animatorSet = new AnimatorSet();
             animatorSet.playTogether(scaleX, scaleY);
@@ -220,6 +261,8 @@ public class PasswordListAdapter extends ListAdapter<PasswordItem, PasswordListA
         void onItemCopyClick(PasswordItem item);
         void onItemEditClick(PasswordItem item);
         void onItemDeleteClick(PasswordItem item);
+        void onItemLongClick(PasswordItem item); // 新增长按事件
+        void onItemMoreClick(PasswordItem item, View anchorView); // 新增更多选项事件
     }
 
     /**

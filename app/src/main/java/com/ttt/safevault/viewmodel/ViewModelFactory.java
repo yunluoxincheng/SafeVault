@@ -40,6 +40,9 @@ public class ViewModelFactory extends ViewModelProvider.AndroidViewModelFactory 
         if (modelClass.isAssignableFrom(EditPasswordViewModel.class)) {
             return (T) new EditPasswordViewModel(application, backendService);
         }
+        if (modelClass.isAssignableFrom(GeneratorViewModel.class)) {
+            return (T) new GeneratorViewModel(application);
+        }
         throw new IllegalArgumentException("Unknown ViewModel class: " + modelClass.getName());
     }
 }

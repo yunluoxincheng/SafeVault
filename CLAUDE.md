@@ -88,21 +88,24 @@ com.ttt.safevault/
 
 ### Core Components
 - **LoginActivity**: App entry point with authentication
-- **MainActivity**: Main container with Navigation Component
+- **MainActivity**: Main container with Navigation Component and Bottom Navigation
 - **PasswordListFragment**: Display password entries with search
 - **PasswordDetailFragment**: Show individual password details
 - **EditPasswordFragment**: Create/edit password entries
+- **GeneratorFragment**: Standalone password generator with strength indicator and history
+- **SettingsFragment**: App settings and preferences
 - **AutofillServiceImpl**: Android AutofillService integration
 - **BackendService**: Interface defining all backend operations
 
 ### Technology Stack
-- **Min SDK**: 23 (Android 6.0)
-- **Target SDK**: 35
+- **Min SDK**: 29 (Android 10)
+- **Target SDK**: 36
 - **Language**: Java 8
 - **Architecture**: MVVM with Android Jetpack
-- **UI**: Material Components + ConstraintLayout
-- **Navigation**: Android Navigation Component
+- **UI**: Material Design 3 + ConstraintLayout
+- **Navigation**: Android Navigation Component with Bottom Navigation
 - **Security**: Biometric authentication, FLAG_SECURE
+- **Clipboard**: Custom ClipboardManager with 30-second auto-clear
 
 ## Development Guidelines
 
@@ -124,10 +127,25 @@ All data operations go through the `BackendService` interface. The frontend rece
 - Configuration file: `res/xml/autofill_service_configuration.xml`
 
 ### Navigation Flow
-Single navigation graph with start destination at `passwordListFragment`:
-- List → Detail (pass `passwordId` as argument)
-- List → Edit (pass `passwordId`, use `-1` for new items)
-- List → Settings
+Bottom navigation with three top-level destinations:
+- **密码库** (Vault): PasswordListFragment - Display password entries with search
+  - List → Detail (pass `passwordId` as argument)
+  - List → Edit (pass `passwordId`, use `-1` for new items)
+- **生成器** (Generator): GeneratorFragment - Standalone password generator
+  - Features: Password strength indicator, generation history, preset configurations
+  - Supports: PIN codes, strong passwords, memorable passwords
+- **设置** (Settings): SettingsFragment - App settings and preferences
+
+### Material Design 3 Implementation
+The app uses Material Design 3 components throughout:
+- **TextInputLayout**: Outlined box style with Material 3
+- **MaterialButton**: Filled, outlined, and text button variants
+- **MaterialCardView**: 12dp corner radius for cards
+- **MaterialSwitch**: For toggle controls
+- **LinearProgressIndicator**: For password strength and loading states
+- **BottomNavigationView**: Three-tab navigation with Material 3 styling
+- **Dynamic Colors**: Android 12+ devices use system colors
+- **Fixed Colors**: Android 10-11 use purple-based theme
 
 ## Important Notes
 
@@ -151,8 +169,19 @@ The frontend codebase is incomplete without a backend implementation of `Backend
 ### Build Configuration
 - ViewBinding enabled for type-safe view references
 - Room database included for repository access only
-- Material Components for consistent UI
+- Material Design 3 components for modern UI
 - Biometric authentication support
+- Custom ClipboardManager for secure clipboard handling
+
+### Password Generator Features
+The GeneratorFragment provides comprehensive password generation:
+- **Length Control**: Slider from 8-32 characters
+- **Character Types**: Uppercase, lowercase, numbers, symbols toggles
+- **Strength Indicator**: Visual bar with color-coded strength levels (weak/medium/strong/very strong)
+- **Presets**: Quick-select configurations for PIN codes, strong passwords, memorable passwords
+- **Generation History**: Recent passwords stored locally (max 10 items)
+- **Clear History**: Button to remove all stored history
+- **Secure Clipboard**: 30-second auto-clear after copying
 
 ## API Usage Limits
 
