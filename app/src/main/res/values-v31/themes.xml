@@ -11,5 +11,11 @@
         <!-- Status bar -->
         <item name="android:statusBarColor">@android:color/system_neutral1_900</item>
         <item name="android:windowLightStatusBar">false</item>
+
+        <!-- Splash Screen for Android 12+ -->
+        <item name="android:windowSplashScreenBackground">@color/ic_launcher_background</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@mipmap/ic_launcher</item>
+        <item name="android:windowSplashScreenAnimationDuration">1000</item>
+        <item name="android:windowSplashScreenIconBackgroundColor">@color/ic_launcher_background</item>
     </style>
 </resources>
