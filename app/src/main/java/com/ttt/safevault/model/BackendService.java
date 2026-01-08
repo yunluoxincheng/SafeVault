@@ -84,6 +84,12 @@ public interface BackendService {
     List<PasswordItem> getAllItems();
 
     /**
+     * 检查应用是否已解锁
+     * @return true表示已解锁，可以访问加密数据
+     */
+    boolean isUnlocked();
+
+    /**
      * 检查应用是否已初始化（是否已设置主密码）
      * @return true表示已初始化，false表示需要设置主密码
      */

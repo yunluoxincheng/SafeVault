@@ -162,12 +162,14 @@ public class AutofillService extends android.service.autofill.AutofillService {
      */
     private List<PasswordItem> getMatchingCredentials(String domain) {
         if (backendService == null) {
+            Log.e(TAG, "backendService is null");
             return new ArrayList<>();
         }
 
         try {
             // 先尝试精确匹配域名
             List<PasswordItem> credentials = backendService.getCredentialsForDomain(domain);
+            Log.d(TAG, "Domain matched credentials: " + credentials.size());
 
             // 如果没有结果，尝试部分匹配
             if (credentials.isEmpty()) {
@@ -175,11 +177,19 @@ public class AutofillService extends android.service.autofill.AutofillService {
                 String domainPart = extractDomain(domain);
                 if (!domainPart.equals(domain)) {
                     credentials = backendService.getCredentialsForDomain(domainPart);
+                    Log.d(TAG, "Domain part matched credentials: " + credentials.size());
                 }
+            }
+            
+            // 如果仍然没有结果，返回所有凭据
+            if (credentials.isEmpty()) {
+                credentials = backendService.getAllItems();
+                Log.d(TAG, "Returning all credentials: " + credentials.size());
             }
 
             return credentials;
         } catch (Exception e) {
+            Log.e(TAG, "Error getting credentials", e);
             return new ArrayList<>();
         }
     }

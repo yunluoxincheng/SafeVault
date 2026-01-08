@@ -3,6 +3,9 @@ package com.ttt.safevault.ui;
 import android.content.Intent;
 import android.os.Build;
 import android.os.Bundle;
+import android.util.Log;
+import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
@@ -25,6 +28,8 @@ import java.util.List;
  * 当有多个匹配项时显示选择界面
  */
 public class AutofillFilterActivity extends AppCompatActivity {
+
+    private static final int REQUEST_LOGIN = 1001;
 
     private RecyclerView recyclerView;
     private PasswordListAdapter adapter;
@@ -52,7 +57,43 @@ public class AutofillFilterActivity extends AppCompatActivity {
         initIntentData();
         setupToolbar();
         setupRecyclerView();
-        loadData();
+        
+        // 检查是否已解锁
+        checkAndLoad();
+    }
+    
+    private void checkAndLoad() {
+        if (backendService == null) {
+            Toast.makeText(this, "服务未初始化", Toast.LENGTH_SHORT).show();
+            finish();
+            return;
+        }
+        
+        // 检查是否已解锁
+        if (!backendService.isUnlocked()) {
+            // 未解锁，跳转到登录界面
+            Intent loginIntent = new Intent(this, LoginActivity.class);
+            loginIntent.putExtra("from_autofill", true);
+            startActivityForResult(loginIntent, REQUEST_LOGIN);
+        } else {
+            loadData();
+        }
+    }
+    
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQUEST_LOGIN) {
+            if (resultCode == RESULT_OK) {
+                // 登录成功，重新获取 backendService 确保状态同步
+                backendService = ServiceLocator.getInstance().getBackendService();
+                Log.d("AutofillFilter", "Login success, isUnlocked: " + backendService.isUnlocked());
+                loadData();
+            } else {
+                // 登录取消，关闭界面
+                finish();
+            }
+        }
     }
 
     private void initViews() {
@@ -121,19 +162,59 @@ public class AutofillFilterActivity extends AppCompatActivity {
     }
 
     private void loadData() {
-        if (allItems != null) {
+        Log.d("AutofillFilter", "loadData called");
+        Log.d("AutofillFilter", "backendService: " + (backendService != null));
+        Log.d("AutofillFilter", "isUnlocked: " + (backendService != null && backendService.isUnlocked()));
+        
+        if (allItems != null && !allItems.isEmpty()) {
+            Log.d("AutofillFilter", "Using passed items: " + allItems.size());
             adapter.submitList(allItems);
-        } else if (backendService != null && domain != null) {
-            // 从后端加载
-            try {
-                List<PasswordItem> items = backendService.getCredentialsForDomain(domain);
-                if (items != null) {
-                    allItems = items;
-                    adapter.submitList(items);
-                }
-            } catch (Exception e) {
-                finish();
+            return;
+        }
+        
+        if (backendService == null) {
+            Log.e("AutofillFilter", "backendService is null");
+            Toast.makeText(this, "服务未初始化", Toast.LENGTH_SHORT).show();
+            finish();
+            return;
+        }
+        
+        if (!backendService.isUnlocked()) {
+            Log.e("AutofillFilter", "backendService is not unlocked!");
+            Toast.makeText(this, "请先登录", Toast.LENGTH_SHORT).show();
+            finish();
+            return;
+        }
+        
+        try {
+            List<PasswordItem> items;
+            
+            // 如果有域名，先尝试匹配
+            if (domain != null && !domain.isEmpty()) {
+                items = backendService.getCredentialsForDomain(domain);
+                Log.d("AutofillFilter", "Domain matched: " + items.size());
+            } else {
+                items = new ArrayList<>();
             }
+            
+            // 如果没有匹配结果，加载所有凭据
+            if (items.isEmpty()) {
+                items = backendService.getAllItems();
+                Log.d("AutofillFilter", "Loading all items: " + items.size());
+            }
+            
+            if (items != null && !items.isEmpty()) {
+                allItems = items;
+                adapter.submitList(new ArrayList<>(items));  // 创建新列表确保更新
+                Log.d("AutofillFilter", "Submitted " + items.size() + " items to adapter");
+            } else {
+                Log.w("AutofillFilter", "No items found");
+                Toast.makeText(this, "没有保存的密码", Toast.LENGTH_SHORT).show();
+            }
+        } catch (Exception e) {
+            Log.e("AutofillFilter", "Error loading data", e);
+            Toast.makeText(this, "加载失败: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+            finish();
         }
     }
 

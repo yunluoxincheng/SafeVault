@@ -217,20 +217,30 @@ public class AutofillHelper {
             return false;
         }
         
+        // 检查 className 是否是 EditText
+        String className = node.getClassName() != null ? node.getClassName().toString() : "";
+        if (className.contains("EditText") || className.contains("TextInputEditText")) {
+            return true;
+        }
+        
         // 检查是否可编辑
         int inputType = node.getInputType();
         if (inputType == 0) {
+            // inputType 为 0，但如果有 hint 或 autofillHints，也可能是输入框
+            if (node.getHint() != null || node.getAutofillHints() != null) {
+                return true;
+            }
             return false;
         }
         
-        // 必须是文本类型
-        if ((inputType & android.text.InputType.TYPE_CLASS_TEXT) == 0 &&
-            (inputType & android.text.InputType.TYPE_CLASS_PHONE) == 0 &&
-            (inputType & android.text.InputType.TYPE_CLASS_NUMBER) == 0) {
-            return false;
+        // 检查是否是文本类型
+        if ((inputType & android.text.InputType.TYPE_CLASS_TEXT) != 0 ||
+            (inputType & android.text.InputType.TYPE_CLASS_PHONE) != 0 ||
+            (inputType & android.text.InputType.TYPE_CLASS_NUMBER) != 0) {
+            return true;
         }
         
-        return true;
+        return false;
     }
     
     /**
@@ -261,12 +271,26 @@ public class AutofillHelper {
      * 查找任何可编辑的文本输入框
      */
     private static AutofillId findAnyEditableTextField(List<ViewNode> nodes) {
+        // 第一轮：查找明确的输入框
         for (ViewNode node : nodes) {
             if (isEditableTextField(node) && !isPasswordField(node)) {
-                Log.d(TAG, "Found any editable text field");
+                Log.d(TAG, "Found editable text field: " + node.getClassName());
                 return node.getAutofillId();
             }
         }
+        
+        // 第二轮：更激进地查找任何有 autofillId 的节点
+        for (ViewNode node : nodes) {
+            if (node.getAutofillId() != null && !isPasswordField(node)) {
+                String className = node.getClassName() != null ? node.getClassName().toString() : "";
+                // 检查是否像输入框
+                if (className.contains("Edit") || className.contains("Input") || className.contains("Text")) {
+                    Log.d(TAG, "Found potential text field: " + className);
+                    return node.getAutofillId();
+                }
+            }
+        }
+        
         return null;
     }
 

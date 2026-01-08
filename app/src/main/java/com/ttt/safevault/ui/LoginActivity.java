@@ -48,6 +48,7 @@ public class LoginActivity extends AppCompatActivity {
     private boolean isInitializing = false;
     private boolean isPasswordVisible = false;
     private boolean isConfirmPasswordVisible = false;
+    private boolean fromAutofill = false;  // 是否从自动填充跳转过来
     
     // 生物识别认证助手
     private BiometricAuthHelper biometricAuthHelper;
@@ -59,6 +60,11 @@ public class LoginActivity extends AppCompatActivity {
 
         // 防止截图
         getWindow().addFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE);
+        
+        // 检查是否从自动填充跳转过来
+        if (getIntent() != null) {
+            fromAutofill = getIntent().getBooleanExtra("from_autofill", false);
+        }
 
         // 获取BackendService实例
         BackendService backendService = com.ttt.safevault.ServiceLocator.getInstance().getBackendService();
@@ -278,10 +284,17 @@ public class LoginActivity extends AppCompatActivity {
     }
 
     private void navigateToMain() {
-        Intent intent = new Intent(this, MainActivity.class);
-        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-        startActivity(intent);
-        finish();
+        if (fromAutofill) {
+            // 从自动填充跳转过来，返回结果
+            setResult(RESULT_OK);
+            finish();
+        } else {
+            // 正常登录，跳转到主界面
+            Intent intent = new Intent(this, MainActivity.class);
+            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+            startActivity(intent);
+            finish();
+        }
     }
 
     private void togglePasswordVisibility() {

@@ -51,7 +51,8 @@ public class BackendServiceImpl implements BackendService {
 
     public BackendServiceImpl(@NonNull Context context) {
         this.context = context.getApplicationContext();
-        this.cryptoManager = new CryptoManager(context);
+        // 使用 ServiceLocator 的共享 CryptoManager，确保解锁状态同步
+        this.cryptoManager = com.ttt.safevault.ServiceLocator.getInstance().getCryptoManager();
         this.passwordDao = AppDatabase.getInstance(context).passwordDao();
         this.securityConfig = new SecurityConfig(context);
         this.prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
@@ -250,6 +251,11 @@ public class BackendServiceImpl implements BackendService {
             Log.e(TAG, "Failed to get all items", e);
         }
         return items;
+    }
+
+    @Override
+    public boolean isUnlocked() {
+        return cryptoManager.isUnlocked();
     }
 
     @Override
