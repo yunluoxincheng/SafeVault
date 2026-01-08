@@ -240,13 +240,19 @@ public class BackendServiceImpl implements BackendService {
     public List<PasswordItem> getAllItems() {
         List<PasswordItem> items = new ArrayList<>();
         try {
+            Log.d(TAG, "getAllItems: isUnlocked=" + cryptoManager.isUnlocked());
             List<EncryptedPasswordEntity> entities = passwordDao.getAll();
+            Log.d(TAG, "getAllItems: found " + entities.size() + " entities in database");
+            
             for (EncryptedPasswordEntity entity : entities) {
                 PasswordItem item = decryptEntity(entity);
                 if (item != null) {
                     items.add(item);
+                } else {
+                    Log.w(TAG, "getAllItems: failed to decrypt entity id=" + entity.getId());
                 }
             }
+            Log.d(TAG, "getAllItems: successfully decrypted " + items.size() + " items");
         } catch (Exception e) {
             Log.e(TAG, "Failed to get all items", e);
         }

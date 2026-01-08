@@ -3,7 +3,12 @@ package com.ttt.safevault.ui;
 import android.content.Intent;
 import android.os.Build;
 import android.os.Bundle;
+import android.service.autofill.Dataset;
 import android.util.Log;
+import android.view.autofill.AutofillId;
+import android.view.autofill.AutofillManager;
+import android.view.autofill.AutofillValue;
+import android.widget.RemoteViews;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -17,11 +22,15 @@ import com.ttt.safevault.R;
 import com.ttt.safevault.ServiceLocator;
 import com.ttt.safevault.adapter.PasswordListAdapter;
 import com.ttt.safevault.autofill.AutofillResult;
+import com.ttt.safevault.data.AppDatabase;
+import com.ttt.safevault.data.PasswordDao;
 import com.ttt.safevault.model.BackendService;
 import com.ttt.safevault.model.PasswordItem;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * 自动填充过滤Activity
@@ -30,11 +39,15 @@ import java.util.List;
 public class AutofillFilterActivity extends AppCompatActivity {
 
     private static final int REQUEST_LOGIN = 1001;
+    private ExecutorService executor;
 
     private RecyclerView recyclerView;
     private PasswordListAdapter adapter;
     private BackendService backendService;
-    private android.view.autofill.AutofillManager autofillManager;
+    private AutofillId usernameId;
+    private AutofillId passwordId;
+    private AutofillManager autofillManager;
+    private boolean isFinishing = false;
     private AutofillResult autofillResult;
     private List<PasswordItem> allItems;
     private String domain;
@@ -46,6 +59,9 @@ public class AutofillFilterActivity extends AppCompatActivity {
 
         // 防止截图
         getWindow().addFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE);
+
+        // 初始化线程池
+        executor = Executors.newSingleThreadExecutor();
 
         // 初始化AutofillManager
         autofillManager = getSystemService(android.view.autofill.AutofillManager.class);
@@ -105,6 +121,10 @@ public class AutofillFilterActivity extends AppCompatActivity {
         if (intent != null) {
             domain = intent.getStringExtra("domain");
             autofillResult = intent.getParcelableExtra("autofillResult");
+            
+            // 获取自动填充字段ID
+            usernameId = intent.getParcelableExtra("usernameId");
+            passwordId = intent.getParcelableExtra("passwordId");
 
             // 获取所有匹配的密码项
             if (intent.hasExtra("passwordItems")) {
@@ -128,6 +148,11 @@ public class AutofillFilterActivity extends AppCompatActivity {
         adapter = new PasswordListAdapter(new PasswordListAdapter.OnItemClickListener() {
             @Override
             public void onItemClick(PasswordItem item) {
+                // 防止重复点击
+                if (isFinishing) {
+                    return;
+                }
+                isFinishing = true;
                 fillCredentials(item);
             }
 
@@ -162,81 +187,103 @@ public class AutofillFilterActivity extends AppCompatActivity {
     }
 
     private void loadData() {
-        Log.d("AutofillFilter", "loadData called");
-        Log.d("AutofillFilter", "backendService: " + (backendService != null));
-        Log.d("AutofillFilter", "isUnlocked: " + (backendService != null && backendService.isUnlocked()));
-        
         if (allItems != null && !allItems.isEmpty()) {
-            Log.d("AutofillFilter", "Using passed items: " + allItems.size());
             adapter.submitList(allItems);
             return;
         }
         
         if (backendService == null) {
-            Log.e("AutofillFilter", "backendService is null");
             Toast.makeText(this, "服务未初始化", Toast.LENGTH_SHORT).show();
             finish();
             return;
         }
         
-        if (!backendService.isUnlocked()) {
-            Log.e("AutofillFilter", "backendService is not unlocked!");
-            Toast.makeText(this, "请先登录", Toast.LENGTH_SHORT).show();
+        boolean unlocked = backendService.isUnlocked();
+        if (!unlocked) {
+            Toast.makeText(this, "未解锁，请先登录", Toast.LENGTH_SHORT).show();
+            finish();
+            return;
+        }
+        
+        // 异步加载数据
+        Toast.makeText(this, "加载中...", Toast.LENGTH_SHORT).show();
+        
+        executor.execute(() -> {
+            try {
+                // 直接查询数据库记录数
+                PasswordDao dao = AppDatabase.getInstance(getApplicationContext()).passwordDao();
+                int dbCount = dao.getCount();
+                
+                List<PasswordItem> items = backendService.getAllItems();
+                int decryptedCount = items.size();
+                
+                runOnUiThread(() -> {
+                    if (decryptedCount > 0) {
+                        allItems = items;
+                        adapter.submitList(new java.util.ArrayList<>(items));
+                        Toast.makeText(this, "找到 " + decryptedCount + " 个密码", Toast.LENGTH_SHORT).show();
+                    } else {
+                        // 显示数据库记录数 vs 解密数
+                        Toast.makeText(this, "数据库:" + dbCount + " 解密:" + decryptedCount, Toast.LENGTH_LONG).show();
+                    }
+                });
+            } catch (Exception e) {
+                runOnUiThread(() -> {
+                    Toast.makeText(this, "加载失败: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                    finish();
+                });
+            }
+        });
+    }
+    
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if (executor != null) {
+            executor.shutdown();
+        }
+    }
+
+    private void fillCredentials(PasswordItem item) {
+        // 构建 Dataset 返回给自动填充框架
+        if (usernameId == null && passwordId == null) {
+            Toast.makeText(this, "无法填充：未找到字段ID", Toast.LENGTH_SHORT).show();
             finish();
             return;
         }
         
         try {
-            List<PasswordItem> items;
+            // 创建展示视图
+            RemoteViews presentation = new RemoteViews(getPackageName(), android.R.layout.simple_list_item_1);
+            presentation.setTextViewText(android.R.id.text1, item.getDisplayName());
             
-            // 如果有域名，先尝试匹配
-            if (domain != null && !domain.isEmpty()) {
-                items = backendService.getCredentialsForDomain(domain);
-                Log.d("AutofillFilter", "Domain matched: " + items.size());
-            } else {
-                items = new ArrayList<>();
+            Dataset.Builder builder = new Dataset.Builder(presentation);
+            
+            // 填充用户名
+            if (usernameId != null && item.getUsername() != null) {
+                builder.setValue(usernameId, AutofillValue.forText(item.getUsername()));
+                Log.d("AutofillFilter", "Set username: " + item.getUsername());
             }
             
-            // 如果没有匹配结果，加载所有凭据
-            if (items.isEmpty()) {
-                items = backendService.getAllItems();
-                Log.d("AutofillFilter", "Loading all items: " + items.size());
+            // 填充密码
+            if (passwordId != null && item.getPassword() != null) {
+                builder.setValue(passwordId, AutofillValue.forText(item.getPassword()));
+                Log.d("AutofillFilter", "Set password: (hidden)");
             }
             
-            if (items != null && !items.isEmpty()) {
-                allItems = items;
-                adapter.submitList(new ArrayList<>(items));  // 创建新列表确保更新
-                Log.d("AutofillFilter", "Submitted " + items.size() + " items to adapter");
-            } else {
-                Log.w("AutofillFilter", "No items found");
-                Toast.makeText(this, "没有保存的密码", Toast.LENGTH_SHORT).show();
-            }
-        } catch (Exception e) {
-            Log.e("AutofillFilter", "Error loading data", e);
-            Toast.makeText(this, "加载失败: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-            finish();
-        }
-    }
-
-    private void fillCredentials(PasswordItem item) {
-        if (autofillResult != null) {
-            // 构建填充响应
+            Dataset dataset = builder.build();
+            
+            // 返回 Dataset 给自动填充框架
             Intent replyIntent = new Intent();
-            replyIntent.putExtra("username", item.getUsername());
-            replyIntent.putExtra("password", item.getPassword());
-
+            replyIntent.putExtra(AutofillManager.EXTRA_AUTHENTICATION_RESULT, dataset);
             setResult(RESULT_OK, replyIntent);
-
-            // 完成自动填充
-            if (autofillManager != null && autofillManager.isEnabled()) {
-                try {
-                    autofillManager.commit();
-                } catch (Exception e) {
-                    // 忽略自动填充提交错误
-                }
-            }
+            
+            Log.d("AutofillFilter", "Returning dataset to system");
+        } catch (Exception e) {
+            Log.e("AutofillFilter", "Fill failed", e);
+            Toast.makeText(this, "填充失败: " + e.getMessage(), Toast.LENGTH_SHORT).show();
         }
-
+        
         finish();
     }
 

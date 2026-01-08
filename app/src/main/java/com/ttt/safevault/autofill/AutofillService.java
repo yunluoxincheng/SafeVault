@@ -288,16 +288,34 @@ public class AutofillService extends android.service.autofill.AutofillService {
             presentation.setTextViewText(android.R.id.text1, "🔒 打开 SafeVault");
             presentation.setTextColor(android.R.id.text1, 0xFF1976D2); // Blue color
             
-            // 创建跳转到应用的Intent
+            // 创建跳转到应用的Intent，传递AutofillId
             Intent intent = new Intent(this, AutofillFilterActivity.class);
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            // 传递字段ID - 必须使用 Parcelable
+            if (fields.usernameId != null) {
+                intent.putExtra("usernameId", fields.usernameId);
+                Log.d(TAG, "Passing usernameId: " + fields.usernameId);
+            }
+            if (fields.passwordId != null) {
+                intent.putExtra("passwordId", fields.passwordId);
+                Log.d(TAG, "Passing passwordId: " + fields.passwordId);
+            }
+            
             IntentSender intentSender = PendingIntent.getActivity(
-                    this, 0, intent, PendingIntent.FLAG_CANCEL_CURRENT | PendingIntent.FLAG_IMMUTABLE)
+                    this, 
+                    (int) System.currentTimeMillis(), // 使用唯一 request code
+                    intent, 
+                    PendingIntent.FLAG_CANCEL_CURRENT | PendingIntent.FLAG_MUTABLE)
                     .getIntentSender();
             
-            // 使用占位值，点击后触发认证
+            // 必须为所有字段设置占位值，否则返回的 Dataset 不会填充所有字段
             Dataset.Builder builder = new Dataset.Builder(presentation);
-            builder.setValue(targetId, AutofillValue.forText(""));
+            if (fields.usernameId != null) {
+                builder.setValue(fields.usernameId, AutofillValue.forText(""));
+            }
+            if (fields.passwordId != null) {
+                builder.setValue(fields.passwordId, AutofillValue.forText(""));
+            }
             builder.setAuthentication(intentSender);
             
             Log.d(TAG, "createOpenAppDataset: success");
