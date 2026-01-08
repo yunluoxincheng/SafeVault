@@ -24,6 +24,12 @@ public class ViewModelFactory extends ViewModelProvider.AndroidViewModelFactory 
         this.backendService = ServiceLocator.getInstance().getBackendService();
     }
 
+    public ViewModelFactory(@NonNull Application application, BackendService backendService) {
+        super(application);
+        this.application = application;
+        this.backendService = backendService;
+    }
+
     @NonNull
     @Override
     @SuppressWarnings("unchecked")
@@ -42,6 +48,18 @@ public class ViewModelFactory extends ViewModelProvider.AndroidViewModelFactory 
         }
         if (modelClass.isAssignableFrom(GeneratorViewModel.class)) {
             return (T) new GeneratorViewModel(application);
+        }
+        if (modelClass.isAssignableFrom(ShareViewModel.class)) {
+            return (T) new ShareViewModel(application, backendService);
+        }
+        if (modelClass.isAssignableFrom(ReceiveShareViewModel.class)) {
+            return (T) new ReceiveShareViewModel(application, backendService);
+        }
+        if (modelClass.isAssignableFrom(FriendViewModel.class)) {
+            return (T) new FriendViewModel(application, backendService);
+        }
+        if (modelClass.isAssignableFrom(ShareHistoryViewModel.class)) {
+            return (T) new ShareHistoryViewModel(application, backendService);
         }
         throw new IllegalArgumentException("Unknown ViewModel class: " + modelClass.getName());
     }

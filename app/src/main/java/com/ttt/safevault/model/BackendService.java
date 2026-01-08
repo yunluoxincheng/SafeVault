@@ -71,13 +71,6 @@ public interface BackendService {
                            boolean useNumbers, boolean useSymbols);
 
     /**
-     * 根据域名获取可用的登录凭据（用于自动填充）
-     * @param domain 域名或URL
-     * @return 该域名下保存的所有账号信息
-     */
-    List<PasswordItem> getCredentialsForDomain(String domain);
-
-    /**
      * 获取所有密码条目
      * @return 所有条目列表
      */
@@ -217,4 +210,155 @@ public interface BackendService {
      * @return true表示生物识别认证已启用且可用
      */
     boolean canUseBiometricAuthentication();
+
+    // ========== 新增：用户管理接口 ==========
+
+    /**
+     * 获取当前用户配置文件
+     * @return 当前用户的 UserProfile
+     */
+    UserProfile getUserProfile();
+
+    /**
+     * 通过用户ID或二维码获取用户信息
+     * @param userId 用户ID 或 二维码内容
+     * @return 用户信息，不存在返回 null
+     */
+    UserProfile getUserById(String userId);
+
+    /**
+     * 添加好友
+     * @param userId 要添加的用户ID
+     * @return true 表示添加成功
+     */
+    boolean addFriend(String userId);
+
+    /**
+     * 获取好友列表
+     * @return 好友列表
+     */
+    List<Friend> getFriendList();
+
+    /**
+     * 删除好友
+     * @param friendId 好友ID
+     * @return true 表示删除成功
+     */
+    boolean removeFriend(String friendId);
+
+    /**
+     * 生成用户分享二维码
+     * @return 二维码内容（包含用户ID和公钥）
+     */
+    String generateUserQRCode();
+
+    // ========== 新增：分享管理接口 ==========
+
+    /**
+     * 创建密码分享
+     * @param passwordId 要分享的密码ID
+     * @param toUserId 接收者用户ID（null表示直接分享）
+     * @param expireInMinutes 过期时间（分钟），0表示永不过期
+     * @param permission 分享权限
+     * @return 分享ID
+     */
+    String createPasswordShare(int passwordId, String toUserId,
+                              int expireInMinutes, SharePermission permission);
+
+    /**
+     * 通过二维码/链接直接创建分享
+     * @param passwordId 要分享的密码ID
+     * @param expireInMinutes 过期时间
+     * @param permission 分享权限
+     * @return 分享内容（可用于生成二维码或链接）
+     */
+    String createDirectPasswordShare(int passwordId, int expireInMinutes,
+                                    SharePermission permission);
+
+    /**
+     * 接收密码分享
+     * @param shareId 分享ID或分享Token
+     * @return 解密后的密码数据
+     */
+    PasswordItem receivePasswordShare(String shareId);
+
+    /**
+     * 撤销密码分享
+     * @param shareId 分享ID
+     * @return true 表示撤销成功
+     */
+    boolean revokePasswordShare(String shareId);
+
+    /**
+     * 获取我创建的分享列表
+     * @return 分享列表
+     */
+    List<PasswordShare> getMyShares();
+
+    /**
+     * 获取我接收的分享列表
+     * @return 分享列表
+     */
+    List<PasswordShare> getReceivedShares();
+
+    /**
+     * 将接收的分享保存到本地
+     * @param shareId 分享ID
+     * @return 保存后的密码ID
+     */
+    int saveSharedPassword(String shareId);
+
+    /**
+     * 获取分享详情
+     * @param shareId 分享ID
+     * @return 分享详情
+     */
+    PasswordShare getShareDetails(String shareId);
+
+    // ========== 新增：加密传输接口 ==========
+
+    /**
+     * 生成分享数据包
+     * @param passwordItem 要分享的密码
+     * @param receiverPublicKey 接收方公钥
+     * @param permission 分享权限
+     * @return 加密的分享数据包
+     */
+    String generateShareData(PasswordItem passwordItem, String receiverPublicKey,
+                            SharePermission permission);
+
+    /**
+     * 解析分享数据包
+     * @param shareData 加密的分享数据包
+     * @return 解密后的密码数据
+     */
+    PasswordItem parseShareData(String shareData);
+
+    // ========== 新增：离线分享接口 ==========
+
+    /**
+     * 创建离线分享（用于二维码离线传输）
+     * @param passwordId 要分享的密码ID
+     * @param sharePassword 分享密码（用于加密）
+     * @param expireInMinutes 过期时间（分钟），0表示永不过期
+     * @param permission 分享权限
+     * @return 二维码内容（包含加密数据），失败返回null
+     */
+    String createOfflineShare(int passwordId, String sharePassword,
+                             int expireInMinutes, SharePermission permission);
+
+    /**
+     * 接收离线分享（从二维码解析）
+     * @param qrContent 二维码内容
+     * @param sharePassword 分享密码
+     * @return 解密后的密码数据，失败返回null
+     */
+    PasswordItem receiveOfflineShare(String qrContent, String sharePassword);
+
+    /**
+     * 生成随机分享密码
+     * @param length 密码长度
+     * @return 随机分享密码
+     */
+    String generateSharePassword(int length);
 }

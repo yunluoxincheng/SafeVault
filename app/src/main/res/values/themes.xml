@@ -52,6 +52,16 @@
     <!-- 无ActionBar主题（已在 Base.Theme.SafeVault 中设置） -->
     <style name="Theme.SafeVault.NoActionBar" parent="Theme.SafeVault" />
 
+    <!-- 透明主题（用于自动填充直接填充模式） -->
+    <style name="Theme.SafeVault.Transparent" parent="Theme.SafeVault.NoActionBar">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowContentOverlay">@null</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:backgroundDimEnabled">false</item>
+        <item name="android:windowAnimationStyle">@null</item>
+    </style>
+
     <!-- 圆形ImageView样式 -->
     <style name="CircleImageView">
         <item name="cornerSize">50%</item>

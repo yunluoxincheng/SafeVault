@@ -99,4 +99,10 @@
     <color name="md_theme_dark_surfaceContainerHigh">#292831</color>
     <color name="md_theme_dark_surfaceContainerHighest">#34333E</color>
     <color name="md_theme_dark_outlineVariant">#49454F</color>
+
+    <!-- ZXing 扫描框颜色 -->
+    <color name="zxing_custom_possible_result_points">#C099CC00</color>
+    <color name="zxing_custom_result_view">#B0000000</color>
+    <color name="zxing_custom_viewfinder_laser">#FF6750A4</color>
+    <color name="zxing_custom_viewfinder_mask">#60000000</color>
 </resources>

@@ -12,15 +12,24 @@ import com.ttt.safevault.data.AppDatabase;
 import com.ttt.safevault.data.EncryptedPasswordEntity;
 import com.ttt.safevault.data.PasswordDao;
 import com.ttt.safevault.model.BackendService;
+import com.ttt.safevault.model.Friend;
 import com.ttt.safevault.model.PasswordItem;
+import com.ttt.safevault.model.PasswordShare;
+import com.ttt.safevault.model.SharePermission;
+import com.ttt.safevault.model.ShareStatus;
+import com.ttt.safevault.model.UserProfile;
 import com.ttt.safevault.security.BiometricKeyManager;
 import com.ttt.safevault.security.SecurityConfig;
 
 import java.security.SecureRandom;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * BackendService接口的具体实现
@@ -34,6 +43,10 @@ public class BackendServiceImpl implements BackendService {
     private static final String PREF_LAST_BACKUP = "last_backup";
     private static final String PREF_BIOMETRIC_ENCRYPTED_PASSWORD = "biometric_encrypted_password";
     private static final String PREF_BIOMETRIC_IV = "biometric_iv";
+    private static final String PREF_USER_ID = "user_id";
+    private static final String PREF_USER_DISPLAY_NAME = "user_display_name";
+    private static final String PREF_USER_PUBLIC_KEY = "user_public_key";
+    private static final String PREF_USER_CREATED_AT = "user_created_at";
 
     // 密码生成字符集
     private static final String UPPERCASE = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -48,6 +61,11 @@ public class BackendServiceImpl implements BackendService {
     private final SharedPreferences prefs;
     private final SecureRandom secureRandom;
     private BiometricKeyManager biometricKeyManager;
+    
+    // 分享功能相关的内存存储（简化实现，生产环境应使用数据库）
+    private final Map<String, Friend> friendsMap = new ConcurrentHashMap<>();
+    private final Map<String, PasswordShare> sharesMap = new ConcurrentHashMap<>();
+    private UserProfile currentUserProfile;
 
     public BackendServiceImpl(@NonNull Context context) {
         this.context = context.getApplicationContext();
@@ -220,36 +238,6 @@ public class BackendServiceImpl implements BackendService {
         }
 
         return new String(passwordArray);
-    }
-
-    @Override
-    public List<PasswordItem> getCredentialsForDomain(String domain) {
-        List<PasswordItem> results = new ArrayList<>();
-        List<PasswordItem> allItems = getAllItems();
-
-        if (domain == null || domain.trim().isEmpty()) {
-            return results;
-        }
-
-        String normalizedDomain = normalizeDomain(domain);
-        for (PasswordItem item : allItems) {
-            if (item.getUrl() != null) {
-                String itemDomain = normalizeDomain(item.getUrl());
-                if (itemDomain.contains(normalizedDomain) || normalizedDomain.contains(itemDomain)) {
-                    results.add(item);
-                }
-            }
-        }
-
-        return results;
-    }
-
-    private String normalizeDomain(String url) {
-        return url.toLowerCase()
-                .replace("https://", "")
-                .replace("http://", "")
-                .replace("www.", "")
-                .split("/")[0];
     }
 
     @Override
@@ -629,5 +617,439 @@ public class BackendServiceImpl implements BackendService {
     private boolean hasMasterPasswordForBiometric() {
         return prefs.contains(PREF_BIOMETRIC_ENCRYPTED_PASSWORD) && 
                prefs.contains(PREF_BIOMETRIC_IV);
+    }
+
+    // ========== 新增：用户管理接口实现 ==========
+
+    @Override
+    public UserProfile getUserProfile() {
+        if (currentUserProfile != null) {
+            return currentUserProfile;
+        }
+        
+        // 从 SharedPreferences 加载用户配置
+        String userId = prefs.getString(PREF_USER_ID, null);
+        if (userId == null) {
+            // 创建新用户
+            userId = "user_" + UUID.randomUUID().toString();
+            String displayName = "默认用户";
+            String publicKey = "public_key_" + UUID.randomUUID().toString(); // 简化实现
+            long createdAt = System.currentTimeMillis();
+            
+            // 保存到 SharedPreferences
+            prefs.edit()
+                .putString(PREF_USER_ID, userId)
+                .putString(PREF_USER_DISPLAY_NAME, displayName)
+                .putString(PREF_USER_PUBLIC_KEY, publicKey)
+                .putLong(PREF_USER_CREATED_AT, createdAt)
+                .apply();
+            
+            currentUserProfile = new UserProfile(userId, displayName, publicKey);
+            currentUserProfile.setCreatedAt(createdAt);
+        } else {
+            String displayName = prefs.getString(PREF_USER_DISPLAY_NAME, "默认用户");
+            String publicKey = prefs.getString(PREF_USER_PUBLIC_KEY, "");
+            long createdAt = prefs.getLong(PREF_USER_CREATED_AT, System.currentTimeMillis());
+            
+            currentUserProfile = new UserProfile(userId, displayName, publicKey);
+            currentUserProfile.setCreatedAt(createdAt);
+        }
+        
+        return currentUserProfile;
+    }
+
+    @Override
+    public UserProfile getUserById(String userId) {
+        // 简化实现：从好友列表中查找
+        Friend friend = friendsMap.get(userId);
+        if (friend != null) {
+            UserProfile profile = new UserProfile();
+            profile.setUserId(friend.getFriendId());
+            profile.setDisplayName(friend.getDisplayName());
+            profile.setPublicKey(friend.getPublicKey());
+            profile.setCreatedAt(friend.getAddedAt());
+            return profile;
+        }
+        
+        // 检查是否是当前用户
+        UserProfile currentUser = getUserProfile();
+        if (currentUser.getUserId().equals(userId)) {
+            return currentUser;
+        }
+        
+        return null;
+    }
+
+    @Override
+    public boolean addFriend(String userId) {
+        try {
+            // 检查是否已经是好友
+            if (friendsMap.containsKey(userId)) {
+                return false;
+            }
+            
+            // 创建好友对象（简化实现）
+            Friend friend = new Friend();
+            friend.setFriendId(userId);
+            friend.setDisplayName("好友_" + userId.substring(0, Math.min(8, userId.length())));
+            friend.setPublicKey("public_key_" + userId);
+            friend.setAddedAt(System.currentTimeMillis());
+            friend.setBlocked(false);
+            
+            friendsMap.put(userId, friend);
+            Log.d(TAG, "Friend added: " + userId);
+            return true;
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to add friend", e);
+            return false;
+        }
+    }
+
+    @Override
+    public List<Friend> getFriendList() {
+        return new ArrayList<>(friendsMap.values());
+    }
+
+    @Override
+    public boolean removeFriend(String friendId) {
+        try {
+            Friend removed = friendsMap.remove(friendId);
+            if (removed != null) {
+                Log.d(TAG, "Friend removed: " + friendId);
+                return true;
+            }
+            return false;
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to remove friend", e);
+            return false;
+        }
+    }
+
+    @Override
+    public String generateUserQRCode() {
+        try {
+            UserProfile profile = getUserProfile();
+            // 返回 JSON 格式的二维码内容
+            return "{\"type\":\"user\",\"userId\":\"" + profile.getUserId() + 
+                   "\",\"displayName\":\"" + profile.getDisplayName() + 
+                   "\",\"publicKey\":\"" + profile.getPublicKey() + "\"}";
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to generate QR code", e);
+            return null;
+        }
+    }
+
+    // ========== 新增：分享管理接口实现 ==========
+
+    @Override
+    public String createPasswordShare(int passwordId, String toUserId,
+                                     int expireInMinutes, SharePermission permission) {
+        try {
+            // 验证密码是否存在
+            PasswordItem item = decryptItem(passwordId);
+            if (item == null) {
+                Log.e(TAG, "Password not found: " + passwordId);
+                return null;
+            }
+            
+            // 生成分享ID
+            String shareId = "share_" + UUID.randomUUID().toString();
+            
+            // 创建分享对象
+            PasswordShare share = new PasswordShare();
+            share.setShareId(shareId);
+            share.setPasswordId(passwordId);
+            share.setFromUserId(getUserProfile().getUserId());
+            share.setToUserId(toUserId);
+            share.setCreatedAt(System.currentTimeMillis());
+            
+            // 计算过期时间
+            if (expireInMinutes > 0) {
+                long expireTime = System.currentTimeMillis() + (expireInMinutes * 60 * 1000L);
+                share.setExpireTime(expireTime);
+            } else {
+                share.setExpireTime(0);
+            }
+            
+            share.setPermission(permission);
+            share.setStatus(ShareStatus.ACTIVE);
+            
+            // 加密密码数据（简化实现，直接存储JSON）
+            String encryptedData = encryptPasswordForShare(item);
+            share.setEncryptedData(encryptedData);
+            
+            // 保存分享
+            sharesMap.put(shareId, share);
+            Log.d(TAG, "Share created: " + shareId);
+            
+            return shareId;
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to create share", e);
+            return null;
+        }
+    }
+
+    @Override
+    public String createDirectPasswordShare(int passwordId, int expireInMinutes,
+                                           SharePermission permission) {
+        // 直接分享与toUserId为null的普通分享相同
+        return createPasswordShare(passwordId, null, expireInMinutes, permission);
+    }
+
+    @Override
+    public PasswordItem receivePasswordShare(String shareId) {
+        try {
+            PasswordShare share = getShareDetails(shareId);
+            if (share == null) {
+                Log.e(TAG, "Share not found: " + shareId);
+                return null;
+            }
+            
+            // 验证分享状态
+            if (!share.isAvailable()) {
+                Log.e(TAG, "Share not available: " + shareId);
+                return null;
+            }
+            
+            // 解密密码数据
+            PasswordItem item = decryptPasswordFromShare(share.getEncryptedData());
+            
+            // 更新分享状态
+            share.setStatus(ShareStatus.ACCEPTED);
+            
+            Log.d(TAG, "Share received: " + shareId);
+            return item;
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to receive share", e);
+            return null;
+        }
+    }
+
+    @Override
+    public boolean revokePasswordShare(String shareId) {
+        try {
+            PasswordShare share = sharesMap.get(shareId);
+            if (share == null) {
+                return false;
+            }
+            
+            // 验证所有权
+            if (!share.getFromUserId().equals(getUserProfile().getUserId())) {
+                Log.e(TAG, "Not authorized to revoke share: " + shareId);
+                return false;
+            }
+            
+            // 验证是否可撤销
+            if (!share.getPermission().isRevocable()) {
+                Log.e(TAG, "Share is not revocable: " + shareId);
+                return false;
+            }
+            
+            // 更新状态
+            share.setStatus(ShareStatus.REVOKED);
+            Log.d(TAG, "Share revoked: " + shareId);
+            return true;
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to revoke share", e);
+            return false;
+        }
+    }
+
+    @Override
+    public List<PasswordShare> getMyShares() {
+        List<PasswordShare> myShares = new ArrayList<>();
+        String currentUserId = getUserProfile().getUserId();
+        
+        for (PasswordShare share : sharesMap.values()) {
+            if (currentUserId.equals(share.getFromUserId())) {
+                myShares.add(share);
+            }
+        }
+        
+        return myShares;
+    }
+
+    @Override
+    public List<PasswordShare> getReceivedShares() {
+        List<PasswordShare> receivedShares = new ArrayList<>();
+        String currentUserId = getUserProfile().getUserId();
+        
+        for (PasswordShare share : sharesMap.values()) {
+            if (currentUserId.equals(share.getToUserId()) || share.getToUserId() == null) {
+                receivedShares.add(share);
+            }
+        }
+        
+        return receivedShares;
+    }
+
+    @Override
+    public int saveSharedPassword(String shareId) {
+        try {
+            PasswordItem item = receivePasswordShare(shareId);
+            if (item == null) {
+                return -1;
+            }
+            
+            // 保存到密码库
+            return saveItem(item);
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to save shared password", e);
+            return -1;
+        }
+    }
+
+    @Override
+    public PasswordShare getShareDetails(String shareId) {
+        return sharesMap.get(shareId);
+    }
+
+    // ========== 新增：加密传输接口实现 ==========
+
+    @Override
+    public String generateShareData(PasswordItem passwordItem,
+                                   String receiverPublicKey,
+                                   SharePermission permission) {
+        try {
+            // 简化实现：直接序列化为JSON（生产环境应使用真正的加密）
+            return encryptPasswordForShare(passwordItem);
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to generate share data", e);
+            return null;
+        }
+    }
+
+    @Override
+    public PasswordItem parseShareData(String shareData) {
+        try {
+            // 简化实现：从JSON解析（生产环境应使用真正的解密）
+            return decryptPasswordFromShare(shareData);
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to parse share data", e);
+            return null;
+        }
+    }
+
+    /**
+     * 加密密码用于分享（简化实现）
+     */
+    private String encryptPasswordForShare(PasswordItem item) {
+        // 简化实现：返回JSON字符串
+        // 生产环境应使用真正的端到端加密
+        return "{\"title\":\"" + (item.getTitle() != null ? item.getTitle() : "") + 
+               "\",\"username\":\"" + (item.getUsername() != null ? item.getUsername() : "") + 
+               "\",\"password\":\"" + (item.getPassword() != null ? item.getPassword() : "") + 
+               "\",\"url\":\"" + (item.getUrl() != null ? item.getUrl() : "") + 
+               "\",\"notes\":\"" + (item.getNotes() != null ? item.getNotes() : "") + "\"}";
+    }
+
+    /**
+     * 从分享数据解密密码（简化实现）
+     */
+    private PasswordItem decryptPasswordFromShare(String encryptedData) {
+        // 简化实现：从JSON解析
+        // 生产环境应使用真正的解密
+        try {
+            PasswordItem item = new PasswordItem();
+            // 简单的JSON解析（生产环境应使用JSON库）
+            if (encryptedData.contains("\"title\":\"")) {
+                String title = extractJsonValue(encryptedData, "title");
+                String username = extractJsonValue(encryptedData, "username");
+                String password = extractJsonValue(encryptedData, "password");
+                String url = extractJsonValue(encryptedData, "url");
+                String notes = extractJsonValue(encryptedData, "notes");
+                
+                item.setTitle(title);
+                item.setUsername(username);
+                item.setPassword(password);
+                item.setUrl(url);
+                item.setNotes(notes);
+            }
+            return item;
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to decrypt password from share", e);
+            return null;
+        }
+    }
+
+    /**
+     * 从JSON字符串提取值（简化实现）
+     */
+    private String extractJsonValue(String json, String key) {
+        try {
+            String searchKey = "\"" + key + "\":\"";
+            int startIndex = json.indexOf(searchKey);
+            if (startIndex == -1) {
+                return "";
+            }
+            startIndex += searchKey.length();
+            int endIndex = json.indexOf("\"", startIndex);
+            if (endIndex == -1) {
+                return "";
+            }
+            return json.substring(startIndex, endIndex);
+        } catch (Exception e) {
+            return "";
+        }
+    }
+
+    // ========== 新增：离线分享接口实现 ==========
+
+    @Override
+    public String createOfflineShare(int passwordId, String sharePassword,
+                                    int expireInMinutes, SharePermission permission) {
+        try {
+            // 获取密码数据
+            PasswordItem item = decryptItem(passwordId);
+            if (item == null) {
+                Log.e(TAG, "Password not found: " + passwordId);
+                return null;
+            }
+
+            // 使用OfflineShareUtils创建离线分享
+            com.ttt.safevault.utils.OfflineShareUtils.OfflineSharePacket packet =
+                com.ttt.safevault.utils.OfflineShareUtils.createOfflineShare(
+                    item, sharePassword, expireInMinutes, permission
+                );
+
+            if (packet == null) {
+                Log.e(TAG, "Failed to create offline share");
+                return null;
+            }
+
+            Log.d(TAG, "Offline share created successfully");
+            return packet.qrContent;
+
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to create offline share", e);
+            return null;
+        }
+    }
+
+    @Override
+    public PasswordItem receiveOfflineShare(String qrContent, String sharePassword) {
+        try {
+            // 使用OfflineShareUtils解析离线分享
+            PasswordItem item = com.ttt.safevault.utils.OfflineShareUtils.parseOfflineShare(
+                qrContent, sharePassword
+            );
+
+            if (item == null) {
+                Log.e(TAG, "Failed to parse offline share");
+                return null;
+            }
+
+            Log.d(TAG, "Offline share received successfully");
+            return item;
+
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to receive offline share", e);
+            return null;
+        }
+    }
+
+    @Override
+    public String generateSharePassword(int length) {
+        return com.ttt.safevault.utils.OfflineShareUtils.generateRandomPassword(length);
     }
 }

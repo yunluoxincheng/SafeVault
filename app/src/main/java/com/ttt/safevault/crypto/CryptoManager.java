@@ -36,6 +36,13 @@ public class CryptoManager {
     private static final String PREF_SALT = "master_salt";
     private static final String PREF_VERIFY_HASH = "verify_hash";
     private static final String PREF_INITIALIZED = "initialized";
+    private static final String PREF_SESSION_KEY = "session_master_key";
+    private static final String PREF_SESSION_IV = "session_master_iv";
+    private static final String PREF_UNLOCK_TIME = "unlock_time";
+    private static final long SESSION_TIMEOUT_MS = 30 * 60 * 1000; // 30分钟会话超时
+    
+    private static final String KEYSTORE_ALIAS = "SafeVaultSessionKey";
+    private static final String ANDROID_KEYSTORE = "AndroidKeyStore";
 
     private static final String ALGORITHM = "AES/GCM/NoPadding";
     private static final int KEY_SIZE = 256;
@@ -85,6 +92,9 @@ public class CryptoManager {
             // 设置为已解锁
             this.masterKey = key;
             this.isUnlocked = true;
+            
+            // 持久化会话密钥，供自动填充服务使用
+            persistSessionKey(key);
 
             return true;
         } catch (Exception e) {
@@ -116,6 +126,9 @@ public class CryptoManager {
             // 派生主密钥
             this.masterKey = deriveKey(masterPassword, salt);
             this.isUnlocked = true;
+            
+            // 持久化会话密钥，供自动填充服务使用
+            persistSessionKey(this.masterKey);
 
             return true;
         } catch (Exception e) {
@@ -130,13 +143,39 @@ public class CryptoManager {
     public void lock() {
         this.masterKey = null;
         this.isUnlocked = false;
+        // 清除持久化的会话密钥
+        clearSessionKey();
     }
 
     /**
      * 检查是否已解锁
+     * 如果内存中没有密钥，尝试从持久化存储恢复
      */
     public boolean isUnlocked() {
-        return isUnlocked && masterKey != null;
+        // 先检查内存中的状态
+        if (isUnlocked && masterKey != null) {
+            return true;
+        }
+        
+        // 尝试从持久化存储恢复会话密钥
+        return tryRestoreSession();
+    }
+    
+    /**
+     * 获取主密钥（如果需要会自动恢复会话）
+     */
+    @Nullable
+    public SecretKey getMasterKey() {
+        if (masterKey != null) {
+            return masterKey;
+        }
+        
+        // 尝试恢复会话
+        if (tryRestoreSession()) {
+            return masterKey;
+        }
+        
+        return null;
     }
 
     /**
@@ -276,6 +315,152 @@ public class CryptoManager {
         // 使用密码+盐值生成哈希，用于验证密码正确性
         String combined = password + Base64.encodeToString(salt, Base64.NO_WRAP);
         return SecurityUtils.sha256(combined);
+    }
+    
+    /**
+     * 持久化会话密钥，使用 Android Keystore 加密保护
+     */
+    private void persistSessionKey(SecretKey key) {
+        try {
+            // 获取或创建 Keystore 密钥
+            SecretKey keystoreKey = getOrCreateKeystoreKey();
+            if (keystoreKey == null) {
+                Log.e(TAG, "Failed to get keystore key");
+                return;
+            }
+            
+            // 使用 Keystore 密钥加密主密钥
+            byte[] iv = new byte[IV_SIZE];
+            new SecureRandom().nextBytes(iv);
+            
+            Cipher cipher = Cipher.getInstance(ALGORITHM);
+            GCMParameterSpec spec = new GCMParameterSpec(TAG_SIZE, iv);
+            cipher.init(Cipher.ENCRYPT_MODE, keystoreKey, spec);
+            
+            byte[] encryptedKey = cipher.doFinal(key.getEncoded());
+            
+            // 保存加密后的密钥和IV
+            SharedPreferences.Editor editor = prefs.edit();
+            editor.putString(PREF_SESSION_KEY, Base64.encodeToString(encryptedKey, Base64.NO_WRAP));
+            editor.putString(PREF_SESSION_IV, Base64.encodeToString(iv, Base64.NO_WRAP));
+            editor.putLong(PREF_UNLOCK_TIME, System.currentTimeMillis());
+            editor.apply();
+            
+            Log.d(TAG, "Session key persisted successfully");
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to persist session key", e);
+        }
+    }
+    
+    /**
+     * 清除持久化的会话密钥
+     */
+    private void clearSessionKey() {
+        SharedPreferences.Editor editor = prefs.edit();
+        editor.remove(PREF_SESSION_KEY);
+        editor.remove(PREF_SESSION_IV);
+        editor.remove(PREF_UNLOCK_TIME);
+        editor.apply();
+        Log.d(TAG, "Session key cleared");
+    }
+    
+    /**
+     * 尝试从持久化存储恢复会话密钥
+     */
+    private boolean tryRestoreSession() {
+        try {
+            String encryptedKeyBase64 = prefs.getString(PREF_SESSION_KEY, null);
+            String ivBase64 = prefs.getString(PREF_SESSION_IV, null);
+            long unlockTime = prefs.getLong(PREF_UNLOCK_TIME, 0);
+            
+            if (encryptedKeyBase64 == null || ivBase64 == null) {
+                Log.d(TAG, "No session key found");
+                return false;
+            }
+            
+            // 检查会话是否超时
+            if (System.currentTimeMillis() - unlockTime > SESSION_TIMEOUT_MS) {
+                Log.d(TAG, "Session expired");
+                clearSessionKey();
+                return false;
+            }
+            
+            // 获取 Keystore 密钥
+            SecretKey keystoreKey = getKeystoreKey();
+            if (keystoreKey == null) {
+                Log.e(TAG, "Keystore key not found");
+                return false;
+            }
+            
+            // 解密主密钥
+            byte[] encryptedKey = Base64.decode(encryptedKeyBase64, Base64.NO_WRAP);
+            byte[] iv = Base64.decode(ivBase64, Base64.NO_WRAP);
+            
+            Cipher cipher = Cipher.getInstance(ALGORITHM);
+            GCMParameterSpec spec = new GCMParameterSpec(TAG_SIZE, iv);
+            cipher.init(Cipher.DECRYPT_MODE, keystoreKey, spec);
+            
+            byte[] keyBytes = cipher.doFinal(encryptedKey);
+            
+            this.masterKey = new SecretKeySpec(keyBytes, "AES");
+            this.isUnlocked = true;
+            
+            Log.d(TAG, "Session restored successfully");
+            return true;
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to restore session", e);
+            clearSessionKey();
+            return false;
+        }
+    }
+    
+    /**
+     * 获取或创建 Android Keystore 中的密钥
+     */
+    private SecretKey getOrCreateKeystoreKey() {
+        try {
+            SecretKey key = getKeystoreKey();
+            if (key != null) {
+                return key;
+            }
+            
+            // 创建新密钥
+            KeyGenerator keyGenerator = KeyGenerator.getInstance(
+                    KeyProperties.KEY_ALGORITHM_AES, ANDROID_KEYSTORE);
+            
+            KeyGenParameterSpec keySpec = new KeyGenParameterSpec.Builder(
+                    KEYSTORE_ALIAS,
+                    KeyProperties.PURPOSE_ENCRYPT | KeyProperties.PURPOSE_DECRYPT)
+                    .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
+                    .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+                    .setKeySize(256)
+                    .build();
+            
+            keyGenerator.init(keySpec);
+            return keyGenerator.generateKey();
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to get or create keystore key", e);
+            return null;
+        }
+    }
+    
+    /**
+     * 从 Android Keystore 获取密钥
+     */
+    @Nullable
+    private SecretKey getKeystoreKey() {
+        try {
+            KeyStore keyStore = KeyStore.getInstance(ANDROID_KEYSTORE);
+            keyStore.load(null);
+            
+            if (keyStore.containsAlias(KEYSTORE_ALIAS)) {
+                return (SecretKey) keyStore.getKey(KEYSTORE_ALIAS, null);
+            }
+            return null;
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to get keystore key", e);
+            return null;
+        }
     }
 
     /**

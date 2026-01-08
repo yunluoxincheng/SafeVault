@@ -29,6 +29,13 @@ public class SecurityConfig {
     private static final String PREF_THEME_MODE = "theme_mode";
     private static final String PREF_DYNAMIC_COLOR = "dynamic_color";
 
+    // 分享功能相关设置
+    private static final String PREF_DEFAULT_TRANSMISSION_METHOD = "default_transmission_method";
+    private static final String PREF_DEFAULT_SHARE_EXPIRE_TIME = "default_share_expire_time";
+    private static final String PREF_DEFAULT_SHARE_SAVEABLE = "default_share_saveable";
+    private static final String PREF_SHARE_PASSWORD_LENGTH = "share_password_length";
+    private static final String PREF_AUTO_REVOKE_AFTER_VIEW = "auto_revoke_after_view";
+
     // 默认值
     public static final boolean DEFAULT_AUTO_LOCK_ENABLED = true;
     public static final int DEFAULT_AUTO_LOCK_TIMEOUT = 30; // 秒
@@ -45,6 +52,13 @@ public class SecurityConfig {
     public static final boolean DEFAULT_AUTOFILL_COPY_TO_CLIPBOARD = false;
     public static final String DEFAULT_THEME_MODE = "SYSTEM";
     public static final boolean DEFAULT_DYNAMIC_COLOR = true;
+
+    // 分享功能默认值
+    public static final String DEFAULT_TRANSMISSION_METHOD = "QR_CODE"; // QR_CODE, BLUETOOTH, NFC, CLOUD
+    public static final int DEFAULT_SHARE_EXPIRE_TIME = 60; // 分钟
+    public static final boolean DEFAULT_SHARE_SAVEABLE = true;
+    public static final int DEFAULT_SHARE_PASSWORD_LENGTH = 8;
+    public static final boolean DEFAULT_AUTO_REVOKE_AFTER_VIEW = false;
 
     /**
      * 自动锁定模式枚举
@@ -202,6 +216,12 @@ public class SecurityConfig {
         editor.putBoolean(PREF_AUTOFILL_COPY_TO_CLIPBOARD, DEFAULT_AUTOFILL_COPY_TO_CLIPBOARD);
         editor.putString(PREF_THEME_MODE, DEFAULT_THEME_MODE);
         editor.putBoolean(PREF_DYNAMIC_COLOR, DEFAULT_DYNAMIC_COLOR);
+        // 分享功能默认值
+        editor.putString(PREF_DEFAULT_TRANSMISSION_METHOD, DEFAULT_TRANSMISSION_METHOD);
+        editor.putInt(PREF_DEFAULT_SHARE_EXPIRE_TIME, DEFAULT_SHARE_EXPIRE_TIME);
+        editor.putBoolean(PREF_DEFAULT_SHARE_SAVEABLE, DEFAULT_SHARE_SAVEABLE);
+        editor.putInt(PREF_SHARE_PASSWORD_LENGTH, DEFAULT_SHARE_PASSWORD_LENGTH);
+        editor.putBoolean(PREF_AUTO_REVOKE_AFTER_VIEW, DEFAULT_AUTO_REVOKE_AFTER_VIEW);
         editor.apply();
     }
 
@@ -372,5 +392,65 @@ public class SecurityConfig {
             default:
                 return 60 * 1000L; // 默认1分钟
         }
+    }
+
+    // ========== 分享功能设置方法 ==========
+
+    /**
+     * 默认传输方式设置
+     */
+    public String getDefaultTransmissionMethod() {
+        return prefs.getString(PREF_DEFAULT_TRANSMISSION_METHOD, DEFAULT_TRANSMISSION_METHOD);
+    }
+
+    public void setDefaultTransmissionMethod(String method) {
+        prefs.edit().putString(PREF_DEFAULT_TRANSMISSION_METHOD, method).apply();
+    }
+
+    /**
+     * 默认分享过期时间设置（分钟）
+     */
+    public int getDefaultShareExpireTime() {
+        return prefs.getInt(PREF_DEFAULT_SHARE_EXPIRE_TIME, DEFAULT_SHARE_EXPIRE_TIME);
+    }
+
+    public void setDefaultShareExpireTime(int minutes) {
+        prefs.edit().putInt(PREF_DEFAULT_SHARE_EXPIRE_TIME, minutes).apply();
+    }
+
+    /**
+     * 默认分享是否可保存
+     */
+    public boolean isDefaultShareSaveable() {
+        return prefs.getBoolean(PREF_DEFAULT_SHARE_SAVEABLE, DEFAULT_SHARE_SAVEABLE);
+    }
+
+    public void setDefaultShareSaveable(boolean saveable) {
+        prefs.edit().putBoolean(PREF_DEFAULT_SHARE_SAVEABLE, saveable).apply();
+    }
+
+    /**
+     * 分享密码长度设置
+     */
+    public int getSharePasswordLength() {
+        return prefs.getInt(PREF_SHARE_PASSWORD_LENGTH, DEFAULT_SHARE_PASSWORD_LENGTH);
+    }
+
+    public void setSharePasswordLength(int length) {
+        if (length < 6 || length > 16) {
+            throw new IllegalArgumentException("Share password length must be between 6 and 16");
+        }
+        prefs.edit().putInt(PREF_SHARE_PASSWORD_LENGTH, length).apply();
+    }
+
+    /**
+     * 查看后自动撤销设置
+     */
+    public boolean isAutoRevokeAfterView() {
+        return prefs.getBoolean(PREF_AUTO_REVOKE_AFTER_VIEW, DEFAULT_AUTO_REVOKE_AFTER_VIEW);
+    }
+
+    public void setAutoRevokeAfterView(boolean enabled) {
+        prefs.edit().putBoolean(PREF_AUTO_REVOKE_AFTER_VIEW, enabled).apply();
     }
 }

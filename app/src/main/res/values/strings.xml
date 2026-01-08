@@ -51,14 +51,7 @@
     <string name="regenerate">重新生成</string>
     <string name="use_password">使用密码</string>
 
-    <!-- Autofill -->
-    <string name="autofill_service_name">SafeVault 自动填充</string>
-    <string name="autofill_service_description">使用SafeVault自动填充用户名和密码</string>
-    <string name="autofill_more_option">更多选项</string>
-    <string name="autofill_new_password">新建密码</string>
-    <string name="autofill_new_password_desc">为此应用保存新密码</string>
-    <string name="autofill_select_account">选择账号</string>
-    <string name="autofill_autofill">自动填充</string>
+
 
     <!-- Password strength -->
     <string name="password_strength">密码强度</string>
@@ -118,7 +111,6 @@
 
     <!-- 主设置页面 -->
     <string name="account_security">账户安全</string>
-    <string name="autofill_settings">自动填充</string>
     <string name="appearance_settings">外观</string>
     <string name="about">关于</string>
 
@@ -173,19 +165,7 @@
     <string name="passwords_do_not_match">密码不匹配</string>
     <string name="weak_password_warning">密码强度较弱，建议使用更长或更复杂的密码</string>
 
-    <!-- 自动填充设置 -->
-    <string name="autofill_service">自动填充服务</string>
-    <string name="autofill_status_enabled">已开启</string>
-    <string name="autofill_status_disabled">未开启</string>
-    <string name="autofill_status_not_supported">不支持</string>
-    <string name="open_system_settings">打开系统设置</string>
-    <string name="autofill_guide_title">启用自动填充</string>
-    <string name="autofill_guide_message">请将 SafeVault 设置为默认自动填充服务以使用此功能。</string>
-    <string name="autofill_suggestions">自动填充建议</string>
-    <string name="autofill_suggestions_summary">在应用中显示填充建议</string>
-    <string name="autofill_copy_to_clipboard">自动填充时复制到剪贴板</string>
-    <string name="autofill_copy_to_clipboard_summary">自动填充时同时复制到剪贴板</string>
-    <string name="autofill_privacy_notice">SafeVault 自动填充服务在本地处理您的数据，不会将您的密码信息发送到任何服务器。</string>
+
 
     <!-- 外观设置 -->
     <string name="theme">主题</string>
@@ -229,4 +209,181 @@
     <string name="error">错误</string>
     <string name="success">成功</string>
     <string name="warning">警告</string>
+
+    <!-- ========== 密码分享功能 ========== -->
+
+    <!-- 分享配置 -->
+    <string name="share_password">分享密码</string>
+    <string name="share_to">分享给</string>
+    <string name="offline_share">离线分享（二维码）</string>
+    <string name="share_to_friend">好友分享</string>
+    <string name="direct_share">直接分享</string>
+    <string name="select_friend">选择好友</string>
+    <string name="share_options">分享选项</string>
+    <string name="expire_time">有效期</string>
+    <string name="allow_save_to_local">允许保存到本地</string>
+    <string name="revocable">可撤销</string>
+
+    <!-- 分享结果 -->
+    <string name="share_result">分享结果</string>
+    <string name="share_success">分享创建成功</string>
+    <string name="qr_code">二维码</string>
+    <string name="scan_qr_code_to_receive">让对方扫描二维码接收分享</string>
+    <string name="share_code">分享码</string>
+    <string name="share_password_label">分享密码</string>
+    <string name="share_password_hint">请告知对方此密码</string>
+    <string name="copy_code">复制分享码</string>
+    <string name="copy_share_password">复制分享密码</string>
+    <string name="done">完成</string>
+
+    <!-- 接收分享 -->
+    <string name="receive_share">接收分享</string>
+    <string name="sharer">分享者</string>
+    <string name="password_info">密码信息</string>
+    <string name="share_info">分享信息</string>
+    <string name="save_to_local">保存到本地</string>
+    <string name="reject">拒绝</string>
+    <string name="show">显示</string>
+    <string name="hide">隐藏</string>
+    <string name="enter_share_password">输入分享密码</string>
+    <string name="share_password_required">此分享需要密码</string>
+    <string name="wrong_share_password">分享密码错误</string>
+
+    <!-- 好友管理 -->
+    <string name="friend_list">好友列表</string>
+    <string name="add_friend">添加好友</string>
+    <string name="remove_friend">删除好友</string>
+    <string name="friend_id">好友ID</string>
+    <string name="scan_friend_qr">扫描好友二维码</string>
+    <string name="my_qr_code">我的二维码</string>
+    <string name="no_friends">暂无好友</string>
+    <string name="add_first_friend">添加您的第一个好友</string>
+
+    <!-- 分享历史 -->
+    <string name="share_history">分享</string>
+    <string name="share_history_title">分享历史</string>
+    <string name="my_shares">我分享的</string>
+    <string name="received_shares">我接收的</string>
+    <string name="no_shares">暂无分享</string>
+    <string name="view_details">查看详情</string>
+    <string name="revoke_share">撤销分享</string>
+    <string name="share_status_pending">等待接收</string>
+    <string name="share_status_active">活跃</string>
+    <string name="share_status_expired">已过期</string>
+    <string name="share_status_revoked">已撤销</string>
+    <string name="share_status_accepted">已接收</string>
+
+    <!-- 二维码扫描 -->
+    <string name="scan_qr_code">扫描二维码</string>
+    <string name="scan_to_add_friend">扫描好友二维码添加好友</string>
+    <string name="scan_to_receive_share">扫描二维码接收分享</string>
+    <string name="invalid_qr_code">无效的二维码</string>
+
+    <!-- 传输方式 -->
+    <string name="transmission_method">传输方式</string>
+    <string name="qr_code_transmission">二维码</string>
+    <string name="bluetooth">蓝牙</string>
+    <string name="bluetooth_transmission">蓝牙</string>
+    <string name="nfc">近场通信</string>
+    <string name="nfc_transmission">NFC</string>
+    <string name="cloud_transmission">云端链接</string>
+    <string name="bluetooth_share_hint">选择蓝牙后，将显示附近可用的已配对设备</string>
+    
+    <!-- 蓝牙传输 -->
+    <string name="bluetooth_transfer">蓝牙传输</string>
+    <string name="select_bluetooth_device">选择蓝牙设备</string>
+    <string name="paired_devices">已配对设备</string>
+    <string name="no_paired_devices">没有已配对的蓝牙设备</string>
+    <string name="bluetooth_not_available">蓝牙不可用</string>
+    <string name="bluetooth_not_enabled">蓝牙未开启</string>
+    <string name="enable_bluetooth">开启蓝牙</string>
+    <string name="bluetooth_permission_required">需要蓝牙权限</string>
+    <string name="grant_bluetooth_permission">授予权限</string>
+    <string name="bluetooth_connecting">正在连接…</string>
+    <string name="bluetooth_connected">已连接</string>
+    <string name="bluetooth_sending">正在发送…</string>
+    <string name="bluetooth_send_success">发送成功</string>
+    <string name="bluetooth_send_failed">发送失败</string>
+    <string name="bluetooth_receiving">正在接收…</string>
+    <string name="bluetooth_receive_success">接收成功</string>
+    <string name="bluetooth_receive_failed">接收失败</string>
+    <string name="waiting_for_receiver">等待接收方连接…</string>
+    <string name="start_listening">开始监听</string>
+    <string name="stop_listening">停止监听</string>
+    <string name="bluetooth_device_not_found">找不到设备</string>
+    
+    <!-- NFC传输 -->
+    <string name="nfc_transfer">NFC传输</string>
+    <string name="nfc_not_available">NFC不可用</string>
+    <string name="nfc_not_enabled">NFC未开启</string>
+    <string name="enable_nfc">开启NFC</string>
+    <string name="nfc_write_mode">请将设备靠近NFC标签写入数据</string>
+    <string name="nfc_read_mode">请将设备靠近NFC标签读取数据</string>
+    <string name="nfc_tap_to_share">轻触分享</string>
+    <string name="nfc_tap_device">请将两台设备背面靠近</string>
+    <string name="nfc_writing">正在写入NFC标签…</string>
+    <string name="nfc_write_success">写入成功</string>
+    <string name="nfc_write_failed">写入失败</string>
+    <string name="nfc_reading">正在读取NFC数据…</string>
+    <string name="nfc_read_success">读取成功</string>
+    <string name="nfc_read_failed">读取失败</string>
+    <string name="nfc_tag_not_writable">NFC标签不可写入</string>
+    <string name="nfc_tag_too_small">NFC标签容量不足</string>
+    <string name="nfc_tap_hint">轻触设备以传输数据</string>
+    <string name="nfc_ready">就绪，请靠近NFC设备</string>
+    <string name="nfc_hint">选择NFC后，将设备靠近进行传输</string>
+    <string name="cloud_hint">选择云端后，将生成分享链接可通过任何方式分享</string>
+    
+    <!-- 云端传输 -->
+    <string name="cloud_share">云端分享</string>
+    <string name="copy_link">复制链接</string>
+    <string name="share_link">分享链接</string>
+    <string name="link_copied">链接已复制</string>
+    <string name="share_via">分享链接至</string>
+    <string name="cloud_share_placeholder_hint">云端分享功能需要服务器支持，当前为占位实现</string>
+    <string name="cloud_link_info">可通过微信、邮件等方式分享此链接</string>
+
+    <!-- 分享设置 -->
+    <string name="share_settings">分享设置</string>
+    <string name="default_transmission_method">默认传输方式</string>
+    <string name="default_expire_time">默认过期时间</string>
+    <string name="default_saveable">默认允许保存</string>
+    <string name="share_password_length">分享密码长度</string>
+    <string name="auto_revoke_after_view">查看后自动撤销</string>
+    <string name="expire_time_minutes">%d 分钟</string>
+    <string name="password_length_chars">%d 位</string>
+
+    <!-- ========== 自动填充功能 ========== -->
+
+    <!-- 自动填充服务 -->
+    <string name="autofill_service_name">SafeVault 自动填充</string>
+    <string name="autofill_service">自动填充服务</string>
+    <string name="autofill_service_description">为网站和应用程序自动填充用户名和密码</string>
+    <string name="autofill_service_enabled">已启用</string>
+    <string name="autofill_service_disabled">未启用</string>
+    <string name="autofill_enable">启用自动填充</string>
+    <string name="autofill_go_to_settings">前往系统设置</string>
+    <string name="autofill_unlock_safevault">解锁 SafeVault</string>
+    <string name="autofill_open_safevault">打开 SafeVault</string>
+    <string name="autofill_no_credentials">没有匹配的凭据</string>
+    
+    <!-- 自动填充保存凭据 -->
+    <string name="autofill_save_credential">保存凭据</string>
+    <string name="autofill_save_success">凭据已保存</string>
+    <string name="autofill_save_failed">保存失败</string>
+    <string name="error_app_locked">应用已锁定，请先解锁</string>
+    <string name="error_username_required">用户名不能为空</string>
+    <string name="error_password_required">密码不能为空</string>
+    
+    <!-- 提示文本 -->
+    <string name="hint_title">标题</string>
+    <string name="hint_username">用户名</string>
+    <string name="hint_password">密码</string>
+    <string name="hint_website">网站/应用</string>
+    <string name="hint_notes">备注（可选）</string>
+    
+    <!-- 按钮 -->
+    <string name="button_save">保存</string>
+    <string name="button_cancel">取消</string>
+
 </resources>

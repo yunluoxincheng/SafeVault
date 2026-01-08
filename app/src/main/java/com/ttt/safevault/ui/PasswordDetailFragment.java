@@ -338,13 +338,10 @@ public class PasswordDetailFragment extends Fragment {
     }
 
     private void sharePassword() {
-        String shareText = viewModel.getShareText();
-        if (shareText != null) {
-            Intent shareIntent = new Intent(Intent.ACTION_SEND);
-            shareIntent.setType("text/plain");
-            shareIntent.putExtra(Intent.EXTRA_TEXT, shareText);
-            startActivity(Intent.createChooser(shareIntent, "分享密码"));
-        }
+        // 导航到新的分享界面
+        Intent intent = new Intent(requireContext(), com.ttt.safevault.ui.share.ShareActivity.class);
+        intent.putExtra("PASSWORD_ID", passwordId);
+        startActivity(intent);
     }
 
     private void showError(String error) {

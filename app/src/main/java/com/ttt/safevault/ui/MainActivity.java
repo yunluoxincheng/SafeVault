@@ -67,6 +67,9 @@ public class MainActivity extends AppCompatActivity {
         initBottomNavigation();
         initFab();
         initViewModel();
+        
+        // 处理从自动填充返回的意图
+        handleAutofillIntent();
     }
 
     private void initNavigation() {
@@ -75,9 +78,10 @@ public class MainActivity extends AppCompatActivity {
         if (navHostFragment != null) {
             navController = navHostFragment.getNavController();
 
-            // 设置顶级目的地（底部导航的三个选项卡）
+            // 设置顶级目的地（底部导航的四个选项卡）
             appBarConfiguration = new AppBarConfiguration.Builder(
                     R.id.nav_passwords,
+                    R.id.nav_share_history,
                     R.id.nav_generator,
                     R.id.nav_settings
             ).build();
@@ -121,6 +125,7 @@ public class MainActivity extends AppCompatActivity {
                 // 只在顶级目的地显示底部导航
                 int destinationId = destination.getId();
                 boolean isTopLevelDestination = destinationId == R.id.nav_passwords
+                        || destinationId == R.id.nav_share_history
                         || destinationId == R.id.nav_generator
                         || destinationId == R.id.nav_settings;
 
@@ -292,6 +297,7 @@ public class MainActivity extends AppCompatActivity {
         if (navController != null && navController.getCurrentDestination() != null) {
             int currentDestinationId = navController.getCurrentDestination().getId();
             boolean isTopLevelDestination = currentDestinationId == R.id.nav_passwords
+                    || currentDestinationId == R.id.nav_share_history
                     || currentDestinationId == R.id.nav_generator
                     || currentDestinationId == R.id.nav_settings;
 
@@ -346,6 +352,29 @@ public class MainActivity extends AppCompatActivity {
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
         startActivity(intent);
         finish();
+    }
+    
+    private void handleAutofillIntent() {
+        Intent intent = getIntent();
+        if (intent != null) {
+            boolean isFromAutofill = intent.getBooleanExtra("from_autofill", false);
+            String autofillDomain = intent.getStringExtra("autofill_domain");
+            
+            if (isFromAutofill && autofillDomain != null) {
+                // 从自动填充返回，如果有域名参数，导航到密码列表并搜索
+                if (navController != null) {
+                    // 确保导航到密码列表页面
+                    navController.navigate(R.id.nav_passwords);
+                    
+                    // 等待导航完成后再执行搜索
+                    new Handler().postDelayed(() -> {
+                        if (listViewModel != null) {
+                            listViewModel.search(autofillDomain);
+                        }
+                    }, 300); // 延迟300毫秒确保页面已加载
+                }
+            }
+        }
     }
 
     @Override

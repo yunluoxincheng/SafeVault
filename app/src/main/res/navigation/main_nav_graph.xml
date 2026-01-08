@@ -34,6 +34,13 @@
         android:label="@string/nav_generator"
         tools:layout="@layout/fragment_generator" />
 
+    <!-- 分享历史页面 -->
+    <fragment
+        android:id="@+id/nav_share_history"
+        android:name="com.ttt.safevault.ui.share.ShareHistoryFragment"
+        android:label="@string/share_history"
+        tools:layout="@layout/fragment_share_history" />
+
     <!-- 设置页面 -->
     <fragment
         android:id="@+id/nav_settings"
@@ -48,8 +55,15 @@
             app:popEnterAnim="@anim/slide_in_left"
             app:popExitAnim="@anim/slide_out_right" />
         <action
-            android:id="@+id/action_settings_to_autofillSettings"
-            app:destination="@id/autofillSettingsFragment"
+            android:id="@+id/action_settings_to_friendList"
+            app:destination="@id/friendListFragment"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left"
+            app:popEnterAnim="@anim/slide_in_left"
+            app:popExitAnim="@anim/slide_out_right" />
+        <action
+            android:id="@+id/action_settings_to_shareSettings"
+            app:destination="@id/shareSettingsFragment"
             app:enterAnim="@anim/slide_in_right"
             app:exitAnim="@anim/slide_out_left"
             app:popEnterAnim="@anim/slide_in_left"
@@ -76,13 +90,6 @@
         android:name="com.ttt.safevault.ui.AccountSecurityFragment"
         android:label="账户安全"
         tools:layout="@layout/fragment_account_security" />
-
-    <!-- 自动填充设置页面 -->
-    <fragment
-        android:id="@+id/autofillSettingsFragment"
-        android:name="com.ttt.safevault.ui.AutofillSettingsFragment"
-        android:label="自动填充设置"
-        tools:layout="@layout/fragment_autofill_settings" />
 
     <!-- 外观设置页面 -->
     <fragment
@@ -132,5 +139,19 @@
             app:argType="string"
             app:nullable="true" />
     </fragment>
+
+    <!-- 好友列表页面 -->
+    <fragment
+        android:id="@+id/friendListFragment"
+        android:name="com.ttt.safevault.ui.friend.FriendListFragment"
+        android:label="@string/friend_list"
+        tools:layout="@layout/fragment_friend_list" />
+
+    <!-- 分享设置页面 -->
+    <fragment
+        android:id="@+id/shareSettingsFragment"
+        android:name="com.ttt.safevault.ui.ShareSettingsFragment"
+        android:label="@string/share_settings"
+        tools:layout="@layout/fragment_share_settings" />
 
 </navigation>

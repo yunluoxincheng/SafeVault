@@ -5,6 +5,10 @@
         android:icon="@drawable/ic_safe_vault"
         android:title="@string/nav_passwords" />
     <item
+        android:id="@+id/nav_share_history"
+        android:icon="@drawable/ic_share"
+        android:title="@string/share_history" />
+    <item
         android:id="@+id/nav_generator"
         android:icon="@drawable/ic_autorenew"
         android:title="@string/nav_generator" />

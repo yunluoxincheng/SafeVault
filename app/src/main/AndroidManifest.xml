@@ -7,9 +7,31 @@
     <uses-permission android:name="android.permission.USE_FINGERPRINT" />
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-
-    <!-- 自动填充服务权限 -->
-    <uses-permission android:name="android.permission.BIND_AUTOFILL_SERVICE" />
+    
+    <!-- 相机权限（用于二维码扫描） -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    
+    <!-- 蓝牙权限 -->
+    <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
+    <!-- Android 12+ 蓝牙权限 -->
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN"
+        android:usesPermissionFlags="neverForLocation"
+        tools:targetApi="s" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    
+    <!-- NFC权限 -->
+    <uses-permission android:name="android.permission.NFC" />
+    
+    <!-- 写入外部存储权限（用于自动填充调试日志） -->
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
+    
+    <!-- 相机和NFC功能要求（可选） -->
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
+    <uses-feature android:name="android.hardware.nfc" android:required="false" />
+    <uses-feature android:name="android.hardware.bluetooth" android:required="false" />
 
     <application
         android:name=".SafeVaultApplication"
@@ -44,23 +66,84 @@
             android:windowSoftInputMode="adjustResize"
             android:theme="@style/Theme.SafeVault.NoActionBar" />
 
-        <!-- 自动填充过滤Activity -->
+        <!-- 分享功能相关页面 -->
         <activity
-            android:name=".ui.AutofillFilterActivity"
-            android:exported="true"
-            android:excludeFromRecents="true"
-            android:noHistory="true"
-            android:launchMode="singleTask"
-            android:taskAffinity=""
+            android:name=".ui.share.ShareActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:windowSoftInputMode="adjustResize"
             android:theme="@style/Theme.SafeVault.NoActionBar" />
 
-        <!-- 自动填充服务 -->
-        <service
-            android:name=".autofill.AutofillService"
-            android:permission="android.permission.BIND_AUTOFILL_SERVICE"
+        <activity
+            android:name=".ui.share.ShareResultActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:theme="@style/Theme.SafeVault.NoActionBar" />
+
+        <activity
+            android:name=".ui.share.ReceiveShareActivity"
             android:exported="true"
-            android:label="@string/autofill_service_name"
-            android:enabled="true">
+            android:screenOrientation="portrait"
+            android:theme="@style/Theme.SafeVault.NoActionBar">
+            <!-- 处理分享链接 -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="safevault" android:host="share" />
+            </intent-filter>
+            <!-- 处理NFC -->
+            <intent-filter>
+                <action android:name="android.nfc.action.NDEF_DISCOVERED" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="application/vnd.safevault.share" />
+            </intent-filter>
+        </activity>
+        
+        <activity
+            android:name=".ui.share.ScanQRCodeActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:theme="@style/Theme.SafeVault.NoActionBar" />
+        
+        <activity
+            android:name=".ui.share.BluetoothReceiveActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:theme="@style/Theme.SafeVault.NoActionBar" />
+
+        <!-- 好友管理相关页面 -->
+        <activity
+            android:name=".ui.friend.AddFriendActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:windowSoftInputMode="adjustResize"
+            android:theme="@style/Theme.SafeVault.NoActionBar" />
+
+        <activity
+            android:name=".ui.friend.UserQRCodeActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:theme="@style/Theme.SafeVault.NoActionBar" />
+
+        <!-- FileProvider用于分享文件 -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
+        <!-- ========== 自动填充服务 ========== -->
+        
+        <!-- AutofillService -->
+        <service
+            android:name=".autofill.SafeVaultAutofillService"
+            android:exported="true"
+            android:permission="android.permission.BIND_AUTOFILL_SERVICE">
             <intent-filter>
                 <action android:name="android.service.autofill.AutofillService" />
             </intent-filter>
@@ -68,6 +151,13 @@
                 android:name="android.autofill"
                 android:resource="@xml/autofill_service_configuration" />
         </service>
+        
+        <!-- AutofillSaveActivity -->
+        <activity
+            android:name=".ui.autofill.AutofillSaveActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:theme="@style/Theme.SafeVault.NoActionBar" />
 
     </application>
 

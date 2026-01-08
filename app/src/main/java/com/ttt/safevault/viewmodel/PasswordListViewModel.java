@@ -208,7 +208,7 @@ public class PasswordListViewModel extends AndroidViewModel {
     private List<PasswordItem> filterItems(List<PasswordItem> items, String query) {
         return items.stream()
                 .filter(item -> matchesQuery(item, query))
-                .toList();
+                .collect(Collectors.toList());
     }
 
     /**

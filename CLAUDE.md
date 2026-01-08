@@ -177,9 +177,3 @@ The GeneratorFragment provides comprehensive password generation:
 - **Generation History**: Recent passwords stored locally (max 10 items)
 - **Clear History**: Button to remove all stored history
 - **Secure Clipboard**: 30-second auto-clear after copying
-
-## API Usage Limits
-
-When using tools that make concurrent API calls (such as Task tool with multiple agents, or multiple parallel Bash/Grep/Read calls), **limit concurrency to maximum 5 simultaneous operations**.
-
-This helps avoid hitting API rate limits and ensures stable operation. When launching multiple parallel tasks, control the batch size to stay within this limit.
