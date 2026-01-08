@@ -5,7 +5,7 @@ import android.app.PendingIntent;
 import android.content.Intent;
 import android.content.IntentSender;
 import android.content.pm.PackageManager;
-import android.os.Build;
+import android.util.Log;
 import android.os.Bundle;
 import android.os.CancellationSignal;
 import android.os.Handler;
@@ -16,6 +16,7 @@ import android.service.autofill.FillRequest;
 import android.service.autofill.FillResponse;
 import android.service.autofill.SaveRequest;
 import android.service.autofill.SaveCallback;
+import android.view.autofill.AutofillId;
 import android.view.autofill.AutofillValue;
 import android.widget.RemoteViews;
 
@@ -38,6 +39,7 @@ import java.util.concurrent.Executors;
  */
 public class AutofillService extends android.service.autofill.AutofillService {
 
+    private static final String TAG = "AutofillService";
     private BackendService backendService;
     private ExecutorService executor;
     private static final int MAX_DATASETS = 5;
@@ -54,8 +56,11 @@ public class AutofillService extends android.service.autofill.AutofillService {
     public void onFillRequest(@NonNull FillRequest request,
                              @NonNull CancellationSignal cancellationSignal,
                              @NonNull FillCallback callback) {
-        // 获取当前会话ID
-        long sessionId = request.getClientState().getLong("sessionId", 0);
+        Log.d(TAG, "onFillRequest called");
+        
+        // 获取当前会话ID（可能为null）
+        Bundle clientState = request.getClientState();
+        long sessionId = clientState != null ? clientState.getLong("sessionId", 0) : 0;
 
         // 解析应用结构
         AssistStructure structure = request.getFillContexts()
@@ -64,8 +69,12 @@ public class AutofillService extends android.service.autofill.AutofillService {
 
         // 查找可填充的字段
         AutofillHelper.FieldResult fields = AutofillHelper.findAutofillFields(structure);
+        
+        Log.d(TAG, "Fields found - username: " + (fields != null && fields.usernameId != null) + 
+                   ", password: " + (fields != null && fields.passwordId != null));
 
         if (fields == null || !fields.hasFields()) {
+            Log.d(TAG, "No autofill fields found");
             callback.onSuccess(null);
             return;
         }
@@ -73,16 +82,21 @@ public class AutofillService extends android.service.autofill.AutofillService {
         // 获取应用包名和域名
         String packageName = structure.getActivityComponent().getPackageName();
         String domain = fields.webDomain != null ? fields.webDomain : packageName;
+        Log.d(TAG, "Package: " + packageName + ", Domain: " + domain);
 
         // 异步加载匹配的凭据
         executor.execute(() -> {
             try {
                 List<PasswordItem> credentials = getMatchingCredentials(domain);
+                Log.d(TAG, "Found " + credentials.size() + " matching credentials");
+                
                 FillResponse response = buildFillResponse(credentials, fields, packageName);
+                Log.d(TAG, "FillResponse built: " + (response != null));
 
                 // 在主线程回调
                 runOnUiThread(() -> callback.onSuccess(response));
             } catch (Exception e) {
+                Log.e(TAG, "Error in onFillRequest", e);
                 // 发生错误，返回null
                 runOnUiThread(() -> callback.onSuccess(null));
             }
@@ -177,14 +191,8 @@ public class AutofillService extends android.service.autofill.AutofillService {
                                            AutofillHelper.FieldResult fields,
                                            String packageName) {
         FillResponse.Builder responseBuilder = new FillResponse.Builder();
-
-        // 添加头部信息
-        // 使用系统默认布局，避免自定义资源依赖
-        RemoteViews presentation = new RemoteViews(getPackageName(), android.R.layout.simple_list_item_1);
-        String appName = getAppName(packageName);
-        presentation.setTextViewText(android.R.id.text1, appName);
-        presentation.setTextColor(android.R.id.text1, 0xFF212121); // Dark text color
-        responseBuilder.setHeader(presentation);
+        
+        boolean hasDataset = false;
 
         // 添加数据集
         int count = Math.min(credentials.size(), MAX_DATASETS);
@@ -193,17 +201,20 @@ public class AutofillService extends android.service.autofill.AutofillService {
             Dataset dataset = createDataset(item, fields);
             if (dataset != null) {
                 responseBuilder.addDataset(dataset);
+                hasDataset = true;
             }
         }
 
-        // 添加"其他"选项
-        if (credentials.size() > MAX_DATASETS) {
-            responseBuilder.addDataset(createMoreOptionsDataset());
+        // 添加"打开SafeVault"选项
+        Dataset openAppDataset = createOpenAppDataset(fields);
+        if (openAppDataset != null) {
+            responseBuilder.addDataset(openAppDataset);
+            hasDataset = true;
         }
 
-        // 添加保存选项
-        if (credentials.isEmpty()) {
-            responseBuilder.addDataset(createNewPasswordDataset());
+        // 如果没有任何数据集，返回null
+        if (!hasDataset) {
+            return null;
         }
 
         // 设置客户端状态
@@ -218,18 +229,20 @@ public class AutofillService extends android.service.autofill.AutofillService {
      * 创建数据集
      */
     private Dataset createDataset(PasswordItem item, AutofillHelper.FieldResult fields) {
-        Dataset.Builder datasetBuilder = new Dataset.Builder();
-
         // 创建展示视图
         RemoteViews presentation = createDatasetPresentation(item);
+        
+        Dataset.Builder datasetBuilder = new Dataset.Builder(presentation);
+        
+        boolean hasValue = false;
 
         // 设置填充值
         if (fields.usernameId != null && item.getUsername() != null) {
             datasetBuilder.setValue(
                     fields.usernameId,
-                    AutofillValue.forText(item.getUsername()),
-                    presentation
+                    AutofillValue.forText(item.getUsername())
             );
+            hasValue = true;
         }
 
         if (fields.passwordId != null && item.getPassword() != null) {
@@ -237,40 +250,52 @@ public class AutofillService extends android.service.autofill.AutofillService {
                     fields.passwordId,
                     AutofillValue.forText(item.getPassword())
             );
+            hasValue = true;
+        }
+
+        // 必须至少有一个填充值
+        if (!hasValue) {
+            return null;
         }
 
         return datasetBuilder.build();
     }
 
     /**
-     * 创建"更多选项"数据集
+     * 创建"打开SafeVault"数据集
      */
-    private Dataset createMoreOptionsDataset() {
-        Intent intent = new Intent(this, AutofillFilterActivity.class);
-        IntentSender intentSender = PendingIntent.getActivity(
-                this, 0, intent, PendingIntent.FLAG_CANCEL_CURRENT | PendingIntent.FLAG_IMMUTABLE)
-                .getIntentSender();
-
-        // 使用系统默认布局，避免自定义资源依赖
-        RemoteViews presentation = new RemoteViews(getPackageName(), android.R.layout.simple_list_item_1);
-        presentation.setTextViewText(android.R.id.text1, "更多选项...");
-        presentation.setTextColor(android.R.id.text1, 0xFF212121); // Dark text color
-
-        return new Dataset.Builder(presentation)
-                .setAuthentication(intentSender)
-                .build();
-    }
-
-    /**
-     * 创建新建密码数据集
-     */
-    private Dataset createNewPasswordDataset() {
-        // 使用系统默认布局，避免自定义资源依赖
-        RemoteViews presentation = new RemoteViews(getPackageName(), android.R.layout.simple_list_item_1);
-        presentation.setTextViewText(android.R.id.text1, "新建密码");
-        presentation.setTextColor(android.R.id.text1, 0xFF212121); // Dark text color
-
-        return new Dataset.Builder(presentation).build();
+    private Dataset createOpenAppDataset(AutofillHelper.FieldResult fields) {
+        // 必须有至少一个字段才能显示
+        AutofillId targetId = fields.usernameId != null ? fields.usernameId : fields.passwordId;
+        if (targetId == null) {
+            Log.d(TAG, "createOpenAppDataset: no target field");
+            return null;
+        }
+        
+        try {
+            // 创建展示视图
+            RemoteViews presentation = new RemoteViews(getPackageName(), android.R.layout.simple_list_item_1);
+            presentation.setTextViewText(android.R.id.text1, "🔒 打开 SafeVault");
+            presentation.setTextColor(android.R.id.text1, 0xFF1976D2); // Blue color
+            
+            // 创建跳转到应用的Intent
+            Intent intent = new Intent(this, AutofillFilterActivity.class);
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            IntentSender intentSender = PendingIntent.getActivity(
+                    this, 0, intent, PendingIntent.FLAG_CANCEL_CURRENT | PendingIntent.FLAG_IMMUTABLE)
+                    .getIntentSender();
+            
+            // 使用占位值，点击后触发认证
+            Dataset.Builder builder = new Dataset.Builder(presentation);
+            builder.setValue(targetId, AutofillValue.forText(""));
+            builder.setAuthentication(intentSender);
+            
+            Log.d(TAG, "createOpenAppDataset: success");
+            return builder.build();
+        } catch (Exception e) {
+            Log.e(TAG, "createOpenAppDataset failed", e);
+            return null;
+        }
     }
 
     /**
