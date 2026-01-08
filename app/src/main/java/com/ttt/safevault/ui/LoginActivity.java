@@ -348,9 +348,10 @@ public class LoginActivity extends AppCompatActivity {
                     try {
                         boolean unlocked = backendService.unlockWithBiometric();
                         if (unlocked) {
+                            // 生物识别解锁成功，导航到主界面
                             navigateToMain();
                         } else {
-                            showError("生物识别解锁失败");
+                            showError("生物识别解锁失败，请使用主密码解锁");
                         }
                     } catch (Exception e) {
                         showError("解锁时发生错误: " + e.getMessage());
