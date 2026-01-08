@@ -2,6 +2,7 @@ package com.ttt.safevault.ui;
 
 import android.annotation.SuppressLint;
 import android.content.Intent;
+import android.os.Build;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextUtils;
@@ -12,6 +13,8 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 import androidx.lifecycle.ViewModelProvider;
 
 import com.google.android.material.textfield.TextInputEditText;
@@ -28,6 +31,7 @@ import com.ttt.safevault.viewmodel.LoginViewModel;
  */
 public class LoginActivity extends AppCompatActivity {
 
+    private static final int PERMISSION_REQUEST_CODE = 1001;
     private LoginViewModel viewModel;
     private TextInputEditText passwordInput;
     private TextInputEditText confirmPasswordInput;
@@ -114,7 +118,7 @@ public class LoginActivity extends AppCompatActivity {
 
         // 观察生物识别支持
         viewModel.canUseBiometric.observe(this, canUse -> {
-            if (canUse != null) {
+            if (canUse != null && biometricButton != null) {
                 biometricButton.setVisibility(canUse ? View.VISIBLE : View.GONE);
             }
         });
@@ -375,15 +379,39 @@ public class LoginActivity extends AppCompatActivity {
     private void initBiometricAuth() {
         biometricAuthHelper = new BiometricAuthHelper(this);
         
+        // 检查并请求生物识别权限
+        checkAndRequestBiometricPermission();
+    }
+    
+    private void checkAndRequestBiometricPermission() {
         // 检查设备是否支持生物识别，并更新按钮可见性
         boolean biometricSupported = BiometricAuthHelper.isBiometricSupported(this);
+        
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            // Android 12+ 需要 BIOMETRIC 权限
+            if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.USE_BIOMETRIC)
+                    != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                // 权限未授予，请求权限
+                ActivityCompat.requestPermissions(this,
+                        new String[]{android.Manifest.permission.USE_BIOMETRIC},
+                        PERMISSION_REQUEST_CODE);
+            }
+        }
+        
         if (biometricButton != null) {
             biometricButton.setVisibility(biometricSupported ? View.VISIBLE : View.GONE);
-            
-            // 如果生物识别不可用但用户期望可用，可以显示一个提示
-            if (!biometricSupported && viewModel.canUseBiometric.getValue() != null && 
-                viewModel.canUseBiometric.getValue()) {
-                // 这意味着用户启用了生物识别但设备不支持，可能需要显示警告
+        }
+    }
+    
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        
+        if (requestCode == PERMISSION_REQUEST_CODE) {
+            // 权限已处理，生物识别权限检查完成
+            if (biometricButton != null) {
+                boolean biometricSupported = BiometricAuthHelper.isBiometricSupported(this);
+                biometricButton.setVisibility(biometricSupported ? View.VISIBLE : View.GONE);
             }
         }
     }

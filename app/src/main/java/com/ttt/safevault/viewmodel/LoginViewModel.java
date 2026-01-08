@@ -54,9 +54,11 @@ public class LoginViewModel extends AndroidViewModel {
                 boolean initialized = backendService.isInitialized();
                 _isInitialized.postValue(initialized);
 
-                // TODO: 检查是否支持生物识别
+                // 检查是否可以使用生物识别
+                // 条件：设备支持 + 已初始化 + 后端服务确认可用
                 boolean biometricSupported = checkBiometricSupport();
-                _canUseBiometric.postValue(biometricSupported && initialized);
+                boolean canUseBiometric = initialized && biometricSupported && backendService.canUseBiometricAuthentication();
+                _canUseBiometric.postValue(canUseBiometric);
             } catch (Exception e) {
                 _errorMessage.postValue("检查初始化状态失败: " + e.getMessage());
             } finally {
@@ -142,11 +144,15 @@ public class LoginViewModel extends AndroidViewModel {
                     return;
                 }
                 
-                // 实际的生物识别认证应在Activity中进行，而不是在ViewModel中
-                // ViewModel应该提供状态更新，而认证过程由Activity处理
-                _errorMessage.postValue("生物识别认证需在Activity中处理");
+                // 生物识别验证成功，调用后端解锁
+                boolean unlocked = backendService.unlockWithBiometric();
+                if (unlocked) {
+                    _isAuthenticated.postValue(true);
+                } else {
+                    _errorMessage.postValue("生物识别解锁失败，请用主密码重试");
+                }
             } catch (Exception e) {
-                _errorMessage.postValue("生物识别认证准备失败: " + e.getMessage());
+                _errorMessage.postValue("生物识别认证出错: " + e.getMessage());
             } finally {
                 _isLoading.postValue(false);
             }

@@ -3,6 +3,7 @@ package com.ttt.safevault.ui;
 import android.content.Intent;
 import android.os.Build;
 import android.os.Bundle;
+import android.view.autofill.AutofillManager;
 import android.provider.Settings;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -57,10 +58,18 @@ public class AutofillSettingsFragment extends BaseFragment {
         binding.btnOpenAutofillSettings.setOnClickListener(v -> {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 try {
-                    Intent intent = new Intent("android.settings.AUTOFILL_SETTINGS");
+                    Intent intent = new Intent(Settings.ACTION_REQUEST_SET_AUTOFILL_SERVICE);
+                    intent.setData(android.net.Uri.parse("package:" + requireContext().getPackageName()));
                     startActivity(intent);
                 } catch (Exception e) {
-                    Toast.makeText(requireContext(), "无法打开自动填充设置", Toast.LENGTH_SHORT).show();
+                    // 如果直接跳转失败，尝试打开自动填充设置页面
+                    try {
+                        Intent fallbackIntent = new Intent(Settings.ACTION_SETTINGS);
+                        startActivity(fallbackIntent);
+                        Toast.makeText(requireContext(), "请在设置中搜索'自动填充'", Toast.LENGTH_LONG).show();
+                    } catch (Exception ex) {
+                        Toast.makeText(requireContext(), "无法打开自动填充设置", Toast.LENGTH_SHORT).show();
+                    }
                 }
             } else {
                 Toast.makeText(requireContext(), "自动填充仅支持 Android 8.0 及以上版本", Toast.LENGTH_SHORT).show();
@@ -79,9 +88,16 @@ public class AutofillSettingsFragment extends BaseFragment {
     }
 
     private void updateAutofillStatus() {
-        // TODO: 实际检查自动填充服务状态
-        // 这里简化为固定显示"未开启"
-        binding.tvAutofillStatus.setText(R.string.autofill_status_disabled);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            AutofillManager autofillManager = requireContext().getSystemService(AutofillManager.class);
+            if (autofillManager != null && autofillManager.hasEnabledAutofillServices()) {
+                binding.tvAutofillStatus.setText(R.string.autofill_status_enabled);
+            } else {
+                binding.tvAutofillStatus.setText(R.string.autofill_status_disabled);
+            }
+        } else {
+            binding.tvAutofillStatus.setText(R.string.autofill_status_disabled);
+        }
     }
 
     @Override

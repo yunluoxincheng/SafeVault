@@ -72,8 +72,8 @@ public class BackendServiceImpl implements BackendService {
     public boolean unlock(String masterPassword) {
         boolean success = cryptoManager.unlock(masterPassword);
         
-        // 如果解锁成功且生物识别已启用，保存加密的主密码
-        if (success && securityConfig.isBiometricEnabled()) {
+        // 解锁成功后总是保存加密的主密码，以便生物识别启用时可以立即使用
+        if (success) {
             saveMasterPasswordForBiometric(masterPassword);
         }
         
@@ -259,7 +259,14 @@ public class BackendServiceImpl implements BackendService {
 
     @Override
     public boolean initialize(String masterPassword) {
-        return cryptoManager.initialize(masterPassword);
+        boolean success = cryptoManager.initialize(masterPassword);
+        
+        // 初始化成功后保存主密码，以便以后启用生物识别时可以立即使用
+        if (success) {
+            saveMasterPasswordForBiometric(masterPassword);
+        }
+        
+        return success;
     }
 
     @Override
@@ -569,8 +576,21 @@ public class BackendServiceImpl implements BackendService {
             return new String(decrypted, java.nio.charset.StandardCharsets.UTF_8);
         } catch (Exception e) {
             Log.e(TAG, "Failed to decrypt master password for biometric", e);
+            // 解密失败，可能是密钥已重建，清除旧数据
+            clearBiometricData();
             return null;
         }
+    }
+    
+    /**
+     * 清除生物识别加密数据
+     */
+    private void clearBiometricData() {
+        prefs.edit()
+            .remove(PREF_BIOMETRIC_ENCRYPTED_PASSWORD)
+            .remove(PREF_BIOMETRIC_IV)
+            .apply();
+        Log.d(TAG, "Biometric data cleared");
     }
 
     /**
