@@ -21,6 +21,7 @@ import android.widget.RemoteViews;
 
 import androidx.annotation.NonNull;
 
+import com.ttt.safevault.ServiceLocator;
 import com.ttt.safevault.model.BackendService;
 import com.ttt.safevault.model.PasswordItem;
 import com.ttt.safevault.ui.AutofillFilterActivity;
@@ -45,8 +46,8 @@ public class AutofillService extends android.service.autofill.AutofillService {
     public void onCreate() {
         super.onCreate();
         executor = Executors.newSingleThreadExecutor();
-        // TODO: 获取BackendService实例
-        // backendService = Injector.get().getBackendService();
+        // 获取BackendService实例
+        backendService = ServiceLocator.getInstance().getBackendService();
     }
 
     @Override

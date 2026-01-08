@@ -32,6 +32,8 @@ public class BackendServiceImpl implements BackendService {
     private static final String PREFS_NAME = "backend_prefs";
     private static final String PREF_BACKGROUND_TIME = "background_time";
     private static final String PREF_LAST_BACKUP = "last_backup";
+    private static final String PREF_BIOMETRIC_ENCRYPTED_PASSWORD = "biometric_encrypted_password";
+    private static final String PREF_BIOMETRIC_IV = "biometric_iv";
 
     // 密码生成字符集
     private static final String UPPERCASE = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -68,7 +70,14 @@ public class BackendServiceImpl implements BackendService {
 
     @Override
     public boolean unlock(String masterPassword) {
-        return cryptoManager.unlock(masterPassword);
+        boolean success = cryptoManager.unlock(masterPassword);
+        
+        // 如果解锁成功且生物识别已启用，保存加密的主密码
+        if (success && securityConfig.isBiometricEnabled()) {
+            saveMasterPasswordForBiometric(masterPassword);
+        }
+        
+        return success;
     }
 
     @Override
@@ -471,77 +480,104 @@ public class BackendServiceImpl implements BackendService {
 
     @Override
     public boolean unlockWithBiometric() {
-        // 生物识别解锁需要安全地处理，通常需要与系统的生物识别认证结合
-        // 在实际应用中，生物识别认证成功后，系统会提供一个安全的密钥或令牌
-        // 这里我们假设生物识别认证已经成功，并且我们有某种方式访问主密码或解密密钥
-        // 但为了安全起见，我们不直接存储主密码，而是使用临时认证令牌
-        
-        // 简化的实现：如果设备支持生物识别且已启用，则认为解锁成功
-        // 实际应用中，这需要更复杂的实现，可能包括：
-        // 1. 使用KeyStore系统存储加密密钥
-        // 2. 在生物识别认证成功后解密主密钥
-        // 3. 使用解密后的主密钥解锁应用
-        
         // 检查生物识别是否启用
         if (!securityConfig.isBiometricEnabled()) {
+            Log.e(TAG, "Biometric not enabled");
             return false;
         }
         
-        // 检查加密管理器是否可以访问密钥（即是否已初始化）
+        // 检查是否已初始化
         if (!cryptoManager.isInitialized()) {
+            Log.e(TAG, "Crypto manager not initialized");
             return false;
         }
         
-        // 生物识别解锁需要安全地处理，使用KeyStore系统来安全地管理解锁密钥
-        // 前提是前端的生物识别认证已经成功完成
-        
-        // 检查生物识别密钥管理器是否已初始化
-        if (biometricKeyManager == null) {
-            Log.e(TAG, "Biometric key manager not initialized");
+        // 获取保存的加密主密码
+        String masterPassword = getMasterPasswordForBiometric();
+        if (masterPassword == null) {
+            Log.e(TAG, "No master password stored for biometric unlock");
             return false;
         }
         
-        // 检查生物识别密钥是否存在
-        try {
-            if (!biometricKeyManager.hasKey()) {
-                Log.e(TAG, "Biometric key does not exist");
-                return false;
-            }
-            
-            // 在实际应用中，我们会使用生物识别认证成功后获得的权限来访问加密密钥
-            // 但由于我们不能直接访问主密码，我们需要另一种安全机制
-            // 这里我们信任前端的生物识别认证结果，并解锁加密管理器
-            // 在实际应用中，这需要使用KeyStore系统中的加密密钥来解锁
-            
-            // 检查加密管理器是否已被锁定
-            if (!cryptoManager.isUnlocked()) {
-                // 在真实实现中，这里应该使用通过生物识别认证获得的安全令牌来解锁
-                // 但现在我们暂时返回true，表示生物识别解锁成功
-                // 实际上，我们需要一种机制来临时解锁加密管理器
-                Log.i(TAG, "Biometric unlock attempted - crypto manager locked, attempting to unlock");
-                
-                // 由于我们无法直接使用生物识别来解锁加密管理器（因为加密管理器使用主密码）
-                // 我们需要一种替代方法，例如：
-                // 1. 在首次设置时，使用主密码解锁后，将一个临时密钥存储在安全的地方
-                // 2. 生物识别成功后，使用这个临时密钥来解锁
-                // 3. 或者，将主密码加密存储，并在生物识别成功后解密
-                return true; // 暂时返回true，表示解锁成功
-            } else {
-                // 如果已经解锁，返回true
-                Log.i(TAG, "Biometric unlock successful - crypto manager already unlocked");
-                return true;
-            }
-        } catch (Exception e) {
-            Log.e(TAG, "Error during biometric unlock", e);
-            return false;
-        }
+        // 使用主密码解锁
+        return cryptoManager.unlock(masterPassword);
     }
 
     @Override
     public boolean canUseBiometricAuthentication() {
-        // 检查生物识别是否已启用且可用
-        // 实际应用中，这里应该检查用户的设置以及设备支持情况
-        // 但前端已经在调用前检查了设备支持情况
-        return securityConfig.isBiometricEnabled();
+        return securityConfig.isBiometricEnabled() && hasMasterPasswordForBiometric();
+    }
+
+    /**
+     * 保存主密码用于生物识别解锁
+     */
+    private void saveMasterPasswordForBiometric(String masterPassword) {
+        if (biometricKeyManager == null) {
+            Log.e(TAG, "BiometricKeyManager not initialized");
+            return;
+        }
+        
+        try {
+            // 获取加密Cipher
+            javax.crypto.Cipher cipher = biometricKeyManager.getEncryptCipher();
+            
+            // 加密主密码
+            byte[] encrypted = cipher.doFinal(masterPassword.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            byte[] iv = cipher.getIV();
+            
+            // 保存加密数据
+            prefs.edit()
+                .putString(PREF_BIOMETRIC_ENCRYPTED_PASSWORD, 
+                    android.util.Base64.encodeToString(encrypted, android.util.Base64.NO_WRAP))
+                .putString(PREF_BIOMETRIC_IV, 
+                    android.util.Base64.encodeToString(iv, android.util.Base64.NO_WRAP))
+                .apply();
+            
+            Log.d(TAG, "Master password saved for biometric unlock");
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to save master password for biometric", e);
+        }
+    }
+
+    /**
+     * 获取用于生物识别解锁的主密码
+     */
+    private String getMasterPasswordForBiometric() {
+        if (biometricKeyManager == null) {
+            Log.e(TAG, "BiometricKeyManager not initialized");
+            return null;
+        }
+        
+        try {
+            String encryptedPassword = prefs.getString(PREF_BIOMETRIC_ENCRYPTED_PASSWORD, null);
+            String ivString = prefs.getString(PREF_BIOMETRIC_IV, null);
+            
+            if (encryptedPassword == null || ivString == null) {
+                Log.e(TAG, "No encrypted password or IV found");
+                return null;
+            }
+            
+            byte[] encrypted = android.util.Base64.decode(encryptedPassword, android.util.Base64.NO_WRAP);
+            byte[] iv = android.util.Base64.decode(ivString, android.util.Base64.NO_WRAP);
+            
+            // 获取解密Cipher
+            javax.crypto.Cipher cipher = biometricKeyManager.getDecryptCipher(iv);
+            
+            // 解密主密码
+            byte[] decrypted = cipher.doFinal(encrypted);
+            
+            return new String(decrypted, java.nio.charset.StandardCharsets.UTF_8);
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to decrypt master password for biometric", e);
+            return null;
+        }
+    }
+
+    /**
+     * 检查是否有保存的生物识别密码
+     */
+    private boolean hasMasterPasswordForBiometric() {
+        return prefs.contains(PREF_BIOMETRIC_ENCRYPTED_PASSWORD) && 
+               prefs.contains(PREF_BIOMETRIC_IV);
     }
 }

@@ -22,6 +22,7 @@ public class SecurityConfig {
     // 新增配置项
     private static final String PREF_AUTO_LOCK_MODE = "auto_lock_mode";
     private static final String PREF_PIN_CODE_ENABLED = "pin_code_enabled";
+    private static final String PREF_PIN_CODE_HASH = "pin_code_hash";
     private static final String PREF_AUTOFILL_ENABLED = "autofill_enabled";
     private static final String PREF_AUTOFILL_SUGGESTIONS = "autofill_suggestions";
     private static final String PREF_AUTOFILL_COPY_TO_CLIPBOARD = "autofill_copy_to_clipboard";
@@ -258,6 +259,46 @@ public class SecurityConfig {
 
     public void setPinCodeEnabled(boolean enabled) {
         prefs.edit().putBoolean(PREF_PIN_CODE_ENABLED, enabled).apply();
+    }
+
+    /**
+     * 设置PIN码
+     */
+    public boolean setPinCode(String pinCode) {
+        if (pinCode == null || pinCode.length() < 4 || pinCode.length() > 20) {
+            return false;
+        }
+        String hash = SecurityUtils.sha256(pinCode);
+        prefs.edit()
+            .putString(PREF_PIN_CODE_HASH, hash)
+            .putBoolean(PREF_PIN_CODE_ENABLED, true)
+            .apply();
+        return true;
+    }
+
+    /**
+     * 验证PIN码
+     */
+    public boolean verifyPinCode(String pinCode) {
+        if (pinCode == null || !isPinCodeEnabled()) {
+            return false;
+        }
+        String storedHash = prefs.getString(PREF_PIN_CODE_HASH, null);
+        if (storedHash == null) {
+            return false;
+        }
+        return SecurityUtils.sha256(pinCode).equals(storedHash);
+    }
+
+    /**
+     * 清除PIN码
+     */
+    public boolean clearPinCode() {
+        prefs.edit()
+            .remove(PREF_PIN_CODE_HASH)
+            .putBoolean(PREF_PIN_CODE_ENABLED, false)
+            .apply();
+        return true;
     }
 
     /**

@@ -11,6 +11,7 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.material.appbar.MaterialToolbar;
 import com.ttt.safevault.R;
+import com.ttt.safevault.ServiceLocator;
 import com.ttt.safevault.adapter.PasswordListAdapter;
 import com.ttt.safevault.autofill.AutofillResult;
 import com.ttt.safevault.model.BackendService;
@@ -44,8 +45,8 @@ public class AutofillFilterActivity extends AppCompatActivity {
         // 初始化AutofillManager
         autofillManager = getSystemService(android.view.autofill.AutofillManager.class);
 
-        // TODO: 获取BackendService实例
-        // backendService = Injector.get().getBackendService();
+        // 获取BackendService实例
+        backendService = ServiceLocator.getInstance().getBackendService();
 
         initViews();
         initIntentData();
