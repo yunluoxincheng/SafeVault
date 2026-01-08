@@ -47,9 +47,11 @@
         <!-- 自动填充过滤Activity -->
         <activity
             android:name=".ui.AutofillFilterActivity"
-            android:exported="false"
+            android:exported="true"
             android:excludeFromRecents="true"
             android:noHistory="true"
+            android:launchMode="singleTask"
+            android:taskAffinity=""
             android:theme="@style/Theme.SafeVault.NoActionBar" />
 
         <!-- 自动填充服务 -->

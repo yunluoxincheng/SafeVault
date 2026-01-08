@@ -125,12 +125,23 @@ public class AutofillFilterActivity extends AppCompatActivity {
             // 获取自动填充字段ID
             usernameId = intent.getParcelableExtra("usernameId");
             passwordId = intent.getParcelableExtra("passwordId");
+            
+            Log.d("AutofillFilter", "Received intent data:");
+            Log.d("AutofillFilter", "  domain: " + domain);
+            Log.d("AutofillFilter", "  usernameId: " + usernameId);
+            Log.d("AutofillFilter", "  passwordId: " + passwordId);
+            
+            // 显示字段ID状态
+            String idStatus = "字段ID: 用户名=" + (usernameId != null ? "有" : "无") + 
+                            ", 密码=" + (passwordId != null ? "有" : "无");
+            Toast.makeText(this, idStatus, Toast.LENGTH_LONG).show();
 
             // 获取所有匹配的密码项
             if (intent.hasExtra("passwordItems")) {
                 ArrayList<PasswordItem> items = intent.getParcelableArrayListExtra("passwordItems");
                 if (items != null) {
                     allItems = items;
+                    Log.d("AutofillFilter", "  received " + items.size() + " items");
                 }
             }
         }
@@ -245,9 +256,18 @@ public class AutofillFilterActivity extends AppCompatActivity {
     }
 
     private void fillCredentials(PasswordItem item) {
+        String debugInfo = "填充: " + item.getUsername() + "\n";
+        debugInfo += "用户名ID=" + (usernameId != null ? "有" : "无");
+        debugInfo += ", 密码ID=" + (passwordId != null ? "有" : "无");
+        Toast.makeText(this, debugInfo, Toast.LENGTH_LONG).show();
+        
+        Log.d("AutofillFilter", "fillCredentials called for: " + item.getUsername());
+        Log.d("AutofillFilter", "usernameId: " + usernameId + ", passwordId: " + passwordId);
+        
         // 构建 Dataset 返回给自动填充框架
         if (usernameId == null && passwordId == null) {
-            Toast.makeText(this, "无法填充：未找到字段ID", Toast.LENGTH_SHORT).show();
+            Log.e("AutofillFilter", "No field IDs available");
+            Toast.makeText(this, "无法填充：未找到字段ID", Toast.LENGTH_LONG).show();
             finish();
             return;
         }
@@ -259,16 +279,26 @@ public class AutofillFilterActivity extends AppCompatActivity {
             
             Dataset.Builder builder = new Dataset.Builder(presentation);
             
+            int fieldCount = 0;
             // 填充用户名
-            if (usernameId != null && item.getUsername() != null) {
+            if (usernameId != null && item.getUsername() != null && !item.getUsername().isEmpty()) {
                 builder.setValue(usernameId, AutofillValue.forText(item.getUsername()));
                 Log.d("AutofillFilter", "Set username: " + item.getUsername());
+                fieldCount++;
             }
             
             // 填充密码
-            if (passwordId != null && item.getPassword() != null) {
+            if (passwordId != null && item.getPassword() != null && !item.getPassword().isEmpty()) {
                 builder.setValue(passwordId, AutofillValue.forText(item.getPassword()));
                 Log.d("AutofillFilter", "Set password: (hidden)");
+                fieldCount++;
+            }
+            
+            if (fieldCount == 0) {
+                Log.e("AutofillFilter", "No fields to fill");
+                Toast.makeText(this, "没有可填充的数据", Toast.LENGTH_LONG).show();
+                finish();
+                return;
             }
             
             Dataset dataset = builder.build();
@@ -276,15 +306,20 @@ public class AutofillFilterActivity extends AppCompatActivity {
             // 返回 Dataset 给自动填充框架
             Intent replyIntent = new Intent();
             replyIntent.putExtra(AutofillManager.EXTRA_AUTHENTICATION_RESULT, dataset);
+            // 添加必要的 flags
+            replyIntent.addFlags(Intent.FLAG_ACTIVITY_FORWARD_RESULT);
             setResult(RESULT_OK, replyIntent);
             
-            Log.d("AutofillFilter", "Returning dataset to system");
+            Log.d("AutofillFilter", "Dataset ready with " + fieldCount + " fields, finishing activity");
+            Toast.makeText(this, "正在填充 " + fieldCount + " 个字段", Toast.LENGTH_SHORT).show();
         } catch (Exception e) {
             Log.e("AutofillFilter", "Fill failed", e);
-            Toast.makeText(this, "填充失败: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "填充失败: " + e.getMessage(), Toast.LENGTH_LONG).show();
         }
         
+        // 立即关闭界面，不给其他导航机会
         finish();
+        Log.d("AutofillFilter", "Activity finished");
     }
 
     @Override

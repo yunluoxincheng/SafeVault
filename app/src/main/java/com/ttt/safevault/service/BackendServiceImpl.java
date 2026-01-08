@@ -73,12 +73,28 @@ public class BackendServiceImpl implements BackendService {
     public boolean unlock(String masterPassword) {
         boolean success = cryptoManager.unlock(masterPassword);
         
-        // 解锁成功后总是保存加密的主密码，以便生物识别启用时可以立即使用
+        // 解锁成功后保存密码
         if (success) {
             saveMasterPasswordForBiometric(masterPassword);
+            // 保存一份用于自动填充服务
+            savePasswordForAutofill(masterPassword);
         }
         
         return success;
+    }
+    
+    /**
+     * 保存密码供自动填充服务使用
+     */
+    private void savePasswordForAutofill(String password) {
+        try {
+            context.getSharedPreferences("autofill_prefs", Context.MODE_PRIVATE)
+                .edit()
+                .putString("master_password", password)
+                .apply();
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to save password for autofill", e);
+        }
     }
 
     @Override
@@ -273,9 +289,11 @@ public class BackendServiceImpl implements BackendService {
     public boolean initialize(String masterPassword) {
         boolean success = cryptoManager.initialize(masterPassword);
         
-        // 初始化成功后保存主密码，以便以后启用生物识别时可以立即使用
+        // 初始化成功后保存主密码
         if (success) {
             saveMasterPasswordForBiometric(masterPassword);
+            // 保存一份用于自动填充服务
+            savePasswordForAutofill(masterPassword);
         }
         
         return success;

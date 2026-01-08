@@ -2,8 +2,10 @@ package com.ttt.safevault.autofill;
 
 import android.app.assist.AssistStructure;
 import android.app.PendingIntent;
+import android.content.Context;
 import android.content.Intent;
 import android.content.IntentSender;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.util.Log;
 import android.os.Bundle;
@@ -47,9 +49,35 @@ public class AutofillService extends android.service.autofill.AutofillService {
     @Override
     public void onCreate() {
         super.onCreate();
+        Log.d(TAG, "AutofillService onCreate");
         executor = Executors.newSingleThreadExecutor();
         // 获取BackendService实例
         backendService = ServiceLocator.getInstance().getBackendService();
+        Log.d(TAG, "backendService: " + (backendService != null));
+        
+        // 尝试从保存的主密码自动解锁
+        if (backendService != null && !backendService.isUnlocked()) {
+            tryAutoUnlock();
+        }
+        Log.d(TAG, "isUnlocked after tryAutoUnlock: " + (backendService != null && backendService.isUnlocked()));
+    }
+    
+    /**
+     * 尝试自动解锁
+     */
+    private void tryAutoUnlock() {
+        try {
+            SharedPreferences prefs = getSharedPreferences("autofill_prefs", Context.MODE_PRIVATE);
+            String savedPassword = prefs.getString("master_password", null);
+            if (savedPassword != null) {
+                boolean unlocked = backendService.unlock(savedPassword);
+                Log.d(TAG, "Auto unlock result: " + unlocked);
+            } else {
+                Log.d(TAG, "No saved password for autofill");
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Auto unlock failed", e);
+        }
     }
 
     @Override
@@ -167,26 +195,25 @@ public class AutofillService extends android.service.autofill.AutofillService {
         }
 
         try {
-            // 先尝试精确匹配域名
-            List<PasswordItem> credentials = backendService.getCredentialsForDomain(domain);
-            Log.d(TAG, "Domain matched credentials: " + credentials.size());
-
-            // 如果没有结果，尝试部分匹配
-            if (credentials.isEmpty()) {
-                // 尝试提取域名部分
-                String domainPart = extractDomain(domain);
-                if (!domainPart.equals(domain)) {
-                    credentials = backendService.getCredentialsForDomain(domainPart);
-                    Log.d(TAG, "Domain part matched credentials: " + credentials.size());
-                }
+            // 检查解锁状态，如果未解锁则尝试自动解锁
+            if (!backendService.isUnlocked()) {
+                Log.d(TAG, "Backend service is locked, trying auto unlock");
+                tryAutoUnlock();
             }
             
-            // 如果仍然没有结果，返回所有凭据
-            if (credentials.isEmpty()) {
-                credentials = backendService.getAllItems();
-                Log.d(TAG, "Returning all credentials: " + credentials.size());
+            // 再次检查解锁状态
+            if (!backendService.isUnlocked()) {
+                Log.w(TAG, "Cannot access credentials: backend service is still locked");
+                return new ArrayList<>();
             }
-
+            
+            List<PasswordItem> credentials = backendService.getAllItems();
+            Log.d(TAG, "getAllItems returned: " + credentials.size() + " items");
+            
+            if (credentials.isEmpty()) {
+                Log.w(TAG, "No credentials found in database");
+            }
+            
             return credentials;
         } catch (Exception e) {
             Log.e(TAG, "Error getting credentials", e);
@@ -204,7 +231,7 @@ public class AutofillService extends android.service.autofill.AutofillService {
         
         boolean hasDataset = false;
 
-        // 添加数据集
+        // 直接添加数据集，不使用认证
         int count = Math.min(credentials.size(), MAX_DATASETS);
         for (int i = 0; i < count; i++) {
             PasswordItem item = credentials.get(i);
@@ -215,22 +242,10 @@ public class AutofillService extends android.service.autofill.AutofillService {
             }
         }
 
-        // 添加"打开SafeVault"选项
-        Dataset openAppDataset = createOpenAppDataset(fields);
-        if (openAppDataset != null) {
-            responseBuilder.addDataset(openAppDataset);
-            hasDataset = true;
-        }
-
         // 如果没有任何数据集，返回null
         if (!hasDataset) {
             return null;
         }
-
-        // 设置客户端状态
-        Bundle clientState = new Bundle();
-        clientState.putLong("sessionId", System.currentTimeMillis());
-        responseBuilder.setClientState(clientState);
 
         return responseBuilder.build();
     }
@@ -272,56 +287,55 @@ public class AutofillService extends android.service.autofill.AutofillService {
     }
 
     /**
-     * 创建"打开SafeVault"数据集
+     * 创建"打开SafeVault"数据集 - 使用 FillResponse 认证而非 Dataset 认证
      */
     private Dataset createOpenAppDataset(AutofillHelper.FieldResult fields) {
-        // 必须有至少一个字段才能显示
-        AutofillId targetId = fields.usernameId != null ? fields.usernameId : fields.passwordId;
-        if (targetId == null) {
-            Log.d(TAG, "createOpenAppDataset: no target field");
-            return null;
-        }
-        
+        // 此方法不再使用，由 buildAuthenticationResponse 替代
+        return null;
+    }
+    
+    /**
+     * 构建需要认证的 FillResponse
+     */
+    private FillResponse buildAuthenticationResponse(AutofillHelper.FieldResult fields, String packageName) {
         try {
-            // 创建展示视图
-            RemoteViews presentation = new RemoteViews(getPackageName(), android.R.layout.simple_list_item_1);
-            presentation.setTextViewText(android.R.id.text1, "🔒 打开 SafeVault");
-            presentation.setTextColor(android.R.id.text1, 0xFF1976D2); // Blue color
-            
-            // 创建跳转到应用的Intent，传递AutofillId
+            // 创建跳转到应用的Intent
             Intent intent = new Intent(this, AutofillFilterActivity.class);
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            // 传递字段ID - 必须使用 Parcelable
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+            
+            // 传递字段ID
             if (fields.usernameId != null) {
                 intent.putExtra("usernameId", fields.usernameId);
-                Log.d(TAG, "Passing usernameId: " + fields.usernameId);
+                Log.d(TAG, "Passing usernameId to auth: " + fields.usernameId);
             }
             if (fields.passwordId != null) {
                 intent.putExtra("passwordId", fields.passwordId);
-                Log.d(TAG, "Passing passwordId: " + fields.passwordId);
+                Log.d(TAG, "Passing passwordId to auth: " + fields.passwordId);
             }
             
             IntentSender intentSender = PendingIntent.getActivity(
                     this, 
-                    (int) System.currentTimeMillis(), // 使用唯一 request code
+                    (int) System.currentTimeMillis(),
                     intent, 
                     PendingIntent.FLAG_CANCEL_CURRENT | PendingIntent.FLAG_MUTABLE)
                     .getIntentSender();
             
-            // 必须为所有字段设置占位值，否则返回的 Dataset 不会填充所有字段
-            Dataset.Builder builder = new Dataset.Builder(presentation);
-            if (fields.usernameId != null) {
-                builder.setValue(fields.usernameId, AutofillValue.forText(""));
-            }
-            if (fields.passwordId != null) {
-                builder.setValue(fields.passwordId, AutofillValue.forText(""));
-            }
-            builder.setAuthentication(intentSender);
+            // 创建展示视图
+            RemoteViews presentation = new RemoteViews(getPackageName(), android.R.layout.simple_list_item_1);
+            presentation.setTextViewText(android.R.id.text1, "🔒 点击选择账号填充");
+            presentation.setTextColor(android.R.id.text1, 0xFF1976D2);
             
-            Log.d(TAG, "createOpenAppDataset: success");
-            return builder.build();
+            // 使用 FillResponse 认证
+            FillResponse.Builder responseBuilder = new FillResponse.Builder();
+            responseBuilder.setAuthentication(
+                new AutofillId[]{fields.usernameId != null ? fields.usernameId : fields.passwordId},
+                intentSender,
+                presentation
+            );
+            
+            return responseBuilder.build();
         } catch (Exception e) {
-            Log.e(TAG, "createOpenAppDataset failed", e);
+            Log.e(TAG, "buildAuthenticationResponse failed", e);
             return null;
         }
     }
