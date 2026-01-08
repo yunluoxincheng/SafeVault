@@ -298,4 +298,29 @@ public class SecurityManager implements LifecycleObserver {
     public void setLockListener(@Nullable LockListener listener) {
         this.lockListener = listener;
     }
+    
+    /**
+     * 检查生物识别是否已启用且可用
+     * @return true表示生物识别已启用且设备支持
+     */
+    public boolean isBiometricAuthenticationAvailable() {
+        // 检查生物识别是否在设置中启用
+        SecurityConfig config = new SecurityConfig(context);
+        if (!config.isBiometricEnabled()) {
+            return false;
+        }
+        
+        // 检查设备是否支持生物识别
+        return com.ttt.safevault.security.BiometricAuthHelper.isBiometricSupported(context);
+    }
+    
+    /**
+     * 检查生物识别是否已启用但设备不支持
+     * @return true表示已启用但不可用
+     */
+    public boolean isBiometricEnabledButUnavailable() {
+        SecurityConfig config = new SecurityConfig(context);
+        return config.isBiometricEnabled() && 
+               !com.ttt.safevault.security.BiometricAuthHelper.isBiometricSupported(context);
+    }
 }

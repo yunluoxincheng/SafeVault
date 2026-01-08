@@ -18,6 +18,7 @@ import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
 import com.ttt.safevault.R;
 import com.ttt.safevault.model.BackendService;
+import com.ttt.safevault.security.BiometricAuthHelper;
 import com.ttt.safevault.utils.AnimationUtils;
 import com.ttt.safevault.viewmodel.LoginViewModel;
 
@@ -43,6 +44,9 @@ public class LoginActivity extends AppCompatActivity {
     private boolean isInitializing = false;
     private boolean isPasswordVisible = false;
     private boolean isConfirmPasswordVisible = false;
+    
+    // 生物识别认证助手
+    private BiometricAuthHelper biometricAuthHelper;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -63,6 +67,7 @@ public class LoginActivity extends AppCompatActivity {
         setupObservers();
         setupClickListeners();
         setupTextWatchers();
+        initBiometricAuth();
     }
 
     private void initViews() {
@@ -128,7 +133,7 @@ public class LoginActivity extends AppCompatActivity {
         });
 
         biometricButton.setOnClickListener(v -> {
-            viewModel.loginWithBiometric();
+            performBiometricAuthentication();
         });
 
         // 清除错误
@@ -325,6 +330,61 @@ public class LoginActivity extends AppCompatActivity {
         confirmPasswordInput.setSelection(confirmPasswordInput.getText().length());
 
         // 添加动画反馈（getEndIconView 不是公开 API，这里简化处理）
+    }
+
+    private void performBiometricAuthentication() {
+        if (biometricAuthHelper == null) {
+            showError("生物识别认证未初始化");
+            return;
+        }
+
+        biometricAuthHelper.authenticate(new BiometricAuthHelper.BiometricAuthCallback() {
+            @Override
+            public void onSuccess() {
+                // 生物识别认证成功，现在调用后端服务解锁
+                runOnUiThread(() -> {
+                    // 直接调用后端服务进行解锁
+                    BackendService backendService = com.ttt.safevault.ServiceLocator.getInstance().getBackendService();
+                    try {
+                        boolean unlocked = backendService.unlockWithBiometric();
+                        if (unlocked) {
+                            navigateToMain();
+                        } else {
+                            showError("生物识别解锁失败");
+                        }
+                    } catch (Exception e) {
+                        showError("解锁时发生错误: " + e.getMessage());
+                    }
+                });
+            }
+
+            @Override
+            public void onFailure(String error) {
+                showError(error);
+            }
+
+            @Override
+            public void onCancel() {
+                // 用户取消认证，不做任何操作或显示提示
+                // 可选：显示一条消息告知用户认证已取消
+            }
+        });
+    }
+
+    private void initBiometricAuth() {
+        biometricAuthHelper = new BiometricAuthHelper(this);
+        
+        // 检查设备是否支持生物识别，并更新按钮可见性
+        boolean biometricSupported = BiometricAuthHelper.isBiometricSupported(this);
+        if (biometricButton != null) {
+            biometricButton.setVisibility(biometricSupported ? View.VISIBLE : View.GONE);
+            
+            // 如果生物识别不可用但用户期望可用，可以显示一个提示
+            if (!biometricSupported && viewModel.canUseBiometric.getValue() != null && 
+                viewModel.canUseBiometric.getValue()) {
+                // 这意味着用户启用了生物识别但设备不支持，可能需要显示警告
+            }
+        }
     }
 
     @Override

@@ -73,7 +73,6 @@
     <!-- Settings -->
     <string name="security_settings">安全设置</string>
     <string name="backup_settings">备份设置</string>
-    <string name="about">关于</string>
     <string name="app_version">版本 1.0</string>
 
     <!-- Colors -->
@@ -114,4 +113,120 @@
     <string name="preset_strong">强密码</string>
     <string name="preset_pin">PIN码</string>
     <string name="preset_memorable">易记密码</string>
+
+    <!-- ========== 设置页面增强 ========== -->
+
+    <!-- 主设置页面 -->
+    <string name="account_security">账户安全</string>
+    <string name="autofill_settings">自动填充</string>
+    <string name="appearance_settings">外观</string>
+    <string name="about">关于</string>
+
+    <!-- 账户安全设置 -->
+    <string name="auto_lock">自动锁定</string>
+    <string name="auto_lock_immediately">立即锁定</string>
+    <string name="auto_lock_1_minute">1分钟后</string>
+    <string name="auto_lock_5_minutes">5分钟后</string>
+    <string name="auto_lock_15_minutes">15分钟后</string>
+    <string name="auto_lock_30_minutes">30分钟后</string>
+    <string name="auto_lock_never">从不</string>
+    <string name="biometric_unlock">生物识别解锁</string>
+    <string name="biometric_unlock_summary">使用指纹或面部识别快速解锁</string>
+    <string name="pin_code">PIN码</string>
+    <string name="pin_code_summary">使用PIN码快速解锁应用</string>
+    <string name="set_up_pin">设置PIN码</string>
+    <string name="change_pin">更改PIN码</string>
+    <string name="remove_pin">移除PIN码</string>
+    <string name="change_master_password">更改主密码</string>
+    <string name="logout">注销登录</string>
+    <string name="logout_summary">清除敏感数据并返回登录</string>
+    <string name="delete_account">删除账户</string>
+    <string name="delete_account_summary">永久删除所有数据，此操作不可撤销</string>
+    <string name="logout_confirm_title">确认注销</string>
+    <string name="logout_confirm_message">确定要注销登录吗？您需要重新输入主密码才能访问账户。</string>
+    <string name="delete_account_warning">警告：此操作将永久删除您的账户和所有数据，且无法恢复。</string>
+    <string name="delete_account_confirm_1">确认删除账户</string>
+    <string name="delete_account_confirm_2">这将删除所有本地和云端数据。请输入\"DELETE\"以确认。</string>
+    <string name="type_delete">输入 DELETE</string>
+    <string name="account_deleted">账户已删除</string>
+    <string name="logged_out">已注销登录</string>
+
+    <!-- PIN码设置 -->
+    <string name="enter_pin">输入PIN码</string>
+    <string name="confirm_pin">确认PIN码</string>
+    <string name="pin_mismatch">PIN码不匹配</string>
+    <string name="pin_length_error">PIN码必须是4-20位数字</string>
+    <string name="verify_current_pin">验证当前PIN码</string>
+    <string name="verify_master_password">验证主密码</string>
+    <string name="enter_new_pin">输入新PIN码</string>
+    <string name="pin_enabled">PIN码已启用</string>
+    <string name="pin_removed">PIN码已移除</string>
+    <string name="pin_changed">PIN码已更改</string>
+
+    <!-- 主密码更改 -->
+    <string name="current_password">当前主密码</string>
+    <string name="new_master_password">新主密码</string>
+    <string name="confirm_new_password">确认新主密码</string>
+    <string name="password_changed">主密码已更改</string>
+    <string name="password_change_error">密码更改失败</string>
+    <string name="incorrect_password">密码错误</string>
+    <string name="passwords_do_not_match">密码不匹配</string>
+    <string name="weak_password_warning">密码强度较弱，建议使用更长或更复杂的密码</string>
+
+    <!-- 自动填充设置 -->
+    <string name="autofill_service">自动填充服务</string>
+    <string name="autofill_status_enabled">已开启</string>
+    <string name="autofill_status_disabled">未开启</string>
+    <string name="autofill_status_not_supported">不支持</string>
+    <string name="open_system_settings">打开系统设置</string>
+    <string name="autofill_guide_title">启用自动填充</string>
+    <string name="autofill_guide_message">请将 SafeVault 设置为默认自动填充服务以使用此功能。</string>
+    <string name="autofill_suggestions">自动填充建议</string>
+    <string name="autofill_suggestions_summary">在应用中显示填充建议</string>
+    <string name="autofill_copy_to_clipboard">自动填充时复制到剪贴板</string>
+    <string name="autofill_copy_to_clipboard_summary">自动填充时同时复制到剪贴板</string>
+    <string name="autofill_privacy_notice">SafeVault 自动填充服务在本地处理您的数据，不会将您的密码信息发送到任何服务器。</string>
+
+    <!-- 外观设置 -->
+    <string name="theme">主题</string>
+    <string name="theme_system">跟随系统</string>
+    <string name="theme_light">浅色</string>
+    <string name="theme_dark">深色</string>
+    <string name="dynamic_color">动态颜色</string>
+    <string name="dynamic_color_summary">使用系统壁纸配色（Android 12+）</string>
+    <string name="language">语言</string>
+    <string name="language_current">简体中文</string>
+    <string name="language_coming_soon">即将推出</string>
+
+    <!-- 关于页面 -->
+    <string name="app_info">应用信息</string>
+    <string name="open_source_licenses">开源许可证</string>
+    <string name="privacy_policy">隐私政策</string>
+    <string name="terms_of_service">用户协议</string>
+    <string name="help_and_support">帮助与支持</string>
+    <string name="user_guide">使用指南</string>
+    <string name="faq">常见问题</string>
+    <string name="report_problem">反馈问题</string>
+    <string name="contact_us">联系我们</string>
+    <string name="project_info">项目信息</string>
+    <string name="security_notice">安全声明</string>
+    <string name="security_notice_text">SafeVault 采用端到端加密保护您的数据。主密码和加密密钥仅存储在您的设备上，我们无法访问您的密码信息。</string>
+    <string name="check_for_updates">检查更新</string>
+    <string name="already_up_to_date">已是最新版本</string>
+    <string name="update_available">有新版本可用</string>
+    <string name="version">版本</string>
+    <string name="build">构建</string>
+    <string name="report_issue_title">反馈问题</string>
+    <string name="report_issue_message">请描述您遇到的问题：</string>
+
+    <!-- 对话框通用 -->
+    <string name="confirm">确认</string>
+    <string name="cancel">取消</string>
+    <string name="ok">确定</string>
+    <string name="save">保存</string>
+    <string name="close">关闭</string>
+    <string name="learn_more">了解更多</string>
+    <string name="error">错误</string>
+    <string name="success">成功</string>
+    <string name="warning">警告</string>
 </resources>

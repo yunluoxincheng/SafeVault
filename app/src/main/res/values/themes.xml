@@ -1,6 +1,6 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <!-- Base application theme using Material Design 3 (强制亮色模式) -->
-    <style name="Base.Theme.SafeVault" parent="Theme.Material3.Light.NoActionBar">
+    <!-- Base application theme using Material Design 3 (支持深色模式) -->
+    <style name="Base.Theme.SafeVault" parent="Theme.Material3.DayNight.NoActionBar">
 
         <!-- Primary brand color -->
         <item name="colorPrimary">@color/md_theme_light_primary</item>
@@ -43,8 +43,8 @@
         <item name="android:statusBarColor">@color/md_theme_light_surface</item>
         <item name="android:windowLightStatusBar" tools:targetApi="m">true</item>
 
-        <!-- 确保窗口背景是白色 -->
-        <item name="android:windowBackground">@color/white</item>
+        <!-- 窗口背景使用主题色 -->
+        <item name="android:windowBackground">?attr/colorSurface</item>
     </style>
 
     <style name="Theme.SafeVault" parent="Base.Theme.SafeVault" />

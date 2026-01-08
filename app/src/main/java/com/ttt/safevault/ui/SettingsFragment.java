@@ -7,13 +7,14 @@ import android.view.ViewGroup;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.navigation.Navigation;
 
 import com.ttt.safevault.R;
 import com.ttt.safevault.databinding.FragmentSettingsBinding;
 
 /**
- * 设置页面 Fragment
- * 显示应用设置选项
+ * 设置主页面 Fragment
+ * 显示四个主要设置分类的入口
  */
 public class SettingsFragment extends BaseFragment {
 
@@ -33,8 +34,21 @@ public class SettingsFragment extends BaseFragment {
     }
 
     private void setupClickListeners() {
-        // 设置项点击事件
-        // TODO: 实现具体设置功能
+        // 账户安全
+        binding.cardAccountSecurity.setOnClickListener(v ->
+                Navigation.findNavController(v).navigate(R.id.action_settings_to_accountSecurity));
+
+        // 自动填充
+        binding.cardAutofill.setOnClickListener(v ->
+                Navigation.findNavController(v).navigate(R.id.action_settings_to_autofillSettings));
+
+        // 外观设置
+        binding.cardAppearance.setOnClickListener(v ->
+                Navigation.findNavController(v).navigate(R.id.action_settings_to_appearanceSettings));
+
+        // 关于
+        binding.cardAbout.setOnClickListener(v ->
+                Navigation.findNavController(v).navigate(R.id.action_settings_to_about));
     }
 
     @Override

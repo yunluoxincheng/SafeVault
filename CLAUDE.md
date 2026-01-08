@@ -13,11 +13,6 @@ Use `@/openspec/AGENTS.md` to learn:
 - Spec format and conventions
 - Project structure and guidelines
 
-## OpenSpec Validator Requirements
-When writing Requirements in OpenSpec specs, the description **MUST** include English keywords "MUST" or "SHALL" to pass validation. For example:
-- ❌ "用户需要能够登录系统" (will fail validation)
-- ✅ "The system MUST allow users to log in" or "用户系统MUST支持用户登录功能"
-
 Keep this managed block so 'openspec update' can refresh the instructions.
 
 <!-- OPENSPEC:END -->

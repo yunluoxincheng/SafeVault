@@ -1,13 +1,16 @@
 package com.ttt.safevault.viewmodel;
 
 import android.app.Application;
+import android.content.Context;
 
 import androidx.annotation.NonNull;
+import androidx.biometric.BiometricManager;
 import androidx.lifecycle.AndroidViewModel;
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
 
 import com.ttt.safevault.model.BackendService;
+import com.ttt.safevault.security.BiometricAuthHelper;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -125,10 +128,29 @@ public class LoginViewModel extends AndroidViewModel {
      * 使用生物识别解锁
      */
     public void loginWithBiometric() {
-        // TODO: 实现生物识别逻辑
-        // 这里需要集成BiometricPrompt
         _isLoading.setValue(true);
-        _errorMessage.setValue("生物识别功能待实现");
+        _errorMessage.setValue(null);
+        
+        executor.execute(() -> {
+            try {
+                // 通过BackendService验证是否可以使用生物识别
+                boolean canUseBiometric = backendService.canUseBiometricAuthentication();
+                
+                if (!canUseBiometric) {
+                    _errorMessage.postValue("生物识别认证未启用或不可用");
+                    _isLoading.postValue(false);
+                    return;
+                }
+                
+                // 实际的生物识别认证应在Activity中进行，而不是在ViewModel中
+                // ViewModel应该提供状态更新，而认证过程由Activity处理
+                _errorMessage.postValue("生物识别认证需在Activity中处理");
+            } catch (Exception e) {
+                _errorMessage.postValue("生物识别认证准备失败: " + e.getMessage());
+            } finally {
+                _isLoading.postValue(false);
+            }
+        });
     }
 
     /**
@@ -187,9 +209,15 @@ public class LoginViewModel extends AndroidViewModel {
      * 检查生物识别支持
      */
     private boolean checkBiometricSupport() {
-        // TODO: 实际检查生物识别硬件支持
-        // 可以使用 BiometricManager.from(context).canAuthenticate()
-        return false;
+        try {
+            BiometricManager biometricManager = BiometricManager.from(getApplication());
+            int canAuthenticateResult = biometricManager.canAuthenticate(
+                BiometricManager.Authenticators.BIOMETRIC_STRONG | 
+                BiometricManager.Authenticators.DEVICE_CREDENTIAL);
+            return canAuthenticateResult == BiometricManager.BIOMETRIC_SUCCESS;
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     @Override

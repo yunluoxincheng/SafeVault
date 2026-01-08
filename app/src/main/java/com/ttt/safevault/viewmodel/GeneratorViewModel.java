@@ -141,34 +141,38 @@ public class GeneratorViewModel extends AndroidViewModel {
 
     /**
      * 计算密码强度
-     * 返回: 0 = 弱, 1 = 中等, 2 = 强
+     * 返回: 0-100 的分数
+     * 评分规则：
+     * - 长度：最高 30 分（8位10分，12位10分，16位10分，20位+5分）
+     * - 字符类型：最高 40 分（每种类型 10 分）
+     * - 复杂度奖励：最高 30 分（3种类型15分，4种类型15分）
      */
     private int calculatePasswordStrength(String password) {
         int score = 0;
 
-        // 长度评分
-        if (password.length() >= 8) score++;
-        if (password.length() >= 12) score++;
-        if (password.length() >= 16) score++;
+        // 长度评分 (0-35分)
+        if (password.length() >= 8) score += 10;
+        if (password.length() >= 12) score += 10;
+        if (password.length() >= 16) score += 10;
+        if (password.length() >= 20) score += 5;
 
-        // 字符类型评分
+        // 字符类型评分 (0-40分)
         boolean hasLowercase = password.matches(".*[a-z].*");
         boolean hasUppercase = password.matches(".*[A-Z].*");
         boolean hasDigit = password.matches(".*\\d.*");
         boolean hasSymbol = password.matches(".*[!@#$%^&*()_+\\-=\\[\\]{}|;:,.<>?].*");
 
         int typeCount = 0;
-        if (hasLowercase) typeCount++;
-        if (hasUppercase) typeCount++;
-        if (hasDigit) typeCount++;
-        if (hasSymbol) typeCount++;
+        if (hasLowercase) { typeCount++; score += 10; }
+        if (hasUppercase) { typeCount++; score += 10; }
+        if (hasDigit) { typeCount++; score += 10; }
+        if (hasSymbol) { typeCount++; score += 10; }
 
-        score += typeCount;
+        // 复杂度奖励 (0-25分)
+        if (typeCount >= 3) score += 15;
+        if (typeCount == 4) score += 10;
 
-        // 转换为强度级别
-        if (score >= 6) return 2; // 强
-        if (score >= 4) return 1; // 中等
-        return 0; // 弱
+        return Math.min(score, 100);
     }
 
     /**

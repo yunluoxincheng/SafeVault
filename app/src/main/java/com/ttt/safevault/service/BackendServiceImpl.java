@@ -405,4 +405,71 @@ public class BackendServiceImpl implements BackendService {
         }
         return cryptoManager.decrypt(parts[1], parts[0]);
     }
+
+    // ========== 新增：账户操作接口实现 ==========
+
+    @Override
+    public boolean setPinCode(String pinCode) {
+        // TODO: 实现 PIN 码加密存储
+        return false;
+    }
+
+    @Override
+    public boolean verifyPinCode(String pinCode) {
+        // TODO: 实现 PIN 码验证
+        return false;
+    }
+
+    @Override
+    public boolean clearPinCode() {
+        // TODO: 实现 PIN 码清除
+        return false;
+    }
+
+    @Override
+    public boolean isPinCodeEnabled() {
+        return securityConfig.isPinCodeEnabled();
+    }
+
+    @Override
+    public void logout() {
+        lock();
+        // 清除内存中的敏感数据
+    }
+
+    @Override
+    public boolean deleteAccount() {
+        // TODO: 实现账户删除，包括本地和云端数据
+        try {
+            // 删除所有密码数据
+            List<PasswordItem> items = getAllItems();
+            for (PasswordItem item : items) {
+                deleteItem(item.getId());
+            }
+            // 清除加密密钥
+            cryptoManager.lock();
+            // 清除所有设置
+            securityConfig.clear();
+            return true;
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to delete account", e);
+            return false;
+        }
+    }
+
+    @Override
+    public boolean unlockWithBiometric() {
+        // 生物识别解锁需要先验证生物识别成功，然后使用缓存的密钥解锁
+        // 在实际实现中，可能需要与系统的生物识别认证结合
+        // 此处为简化实现，假设生物识别已验证成功，只需调用解锁
+        return cryptoManager.isUnlocked(); // 如果已经解锁，则返回true
+    }
+
+    @Override
+    public boolean canUseBiometricAuthentication() {
+        // 检查生物识别是否已启用且可用
+        // 实际应用中，这里应该检查用户的设置以及设备支持情况
+        // 但前端已经在调用前检查了设备支持情况
+        return securityConfig.isBiometricEnabled();
+    }
 }

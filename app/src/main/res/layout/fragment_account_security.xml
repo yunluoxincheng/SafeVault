@@ -6,7 +6,7 @@
     android:layout_height="match_parent"
     android:background="?attr/colorSurface"
     android:fillViewport="true"
-    tools:context=".ui.SettingsFragment">
+    tools:context=".ui.AccountSecurityFragment">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -14,9 +14,9 @@
         android:orientation="vertical"
         android:padding="16dp">
 
-        <!-- 账户安全卡片 -->
+        <!-- 自动锁定选项 -->
         <com.google.android.material.card.MaterialCardView
-            android:id="@+id/card_account_security"
+            android:id="@+id/card_auto_lock"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="16dp"
@@ -32,16 +32,14 @@
                 android:padding="16dp"
                 android:gravity="center_vertical">
 
-                <!-- 图标 -->
                 <ImageView
                     android:layout_width="24dp"
                     android:layout_height="24dp"
-                    android:src="@drawable/ic_settings_security"
+                    android:src="@drawable/ic_lock"
                     android:contentDescription="@null"
-                    app:tint="?attr/colorPrimary"
+                    app:tint="?attr/colorOnSurface"
                     android:layout_marginEnd="16dp" />
 
-                <!-- 文本区域 -->
                 <LinearLayout
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
@@ -51,20 +49,20 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="@string/account_security"
+                        android:text="@string/auto_lock"
                         android:textAppearance="?attr/textAppearanceTitleMedium"
                         android:textColor="?attr/colorOnSurface" />
 
                     <TextView
+                        android:id="@+id/tv_auto_lock_value"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="@string/security_settings"
+                        android:text="@string/auto_lock_1_minute"
                         android:textAppearance="?attr/textAppearanceBodyMedium"
                         android:textColor="?attr/colorOnSurfaceVariant"
                         android:layout_marginTop="2dp" />
                 </LinearLayout>
 
-                <!-- 导航箭头 -->
                 <ImageView
                     android:layout_width="24dp"
                     android:layout_height="24dp"
@@ -74,9 +72,113 @@
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- 自动填充卡片 -->
+        <!-- 生物识别解锁 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:padding="16dp"
+            android:gravity="center_vertical"
+            android:background="@drawable/settings_item_background">
+
+            <ImageView
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:src="@drawable/ic_fingerprint"
+                android:contentDescription="@null"
+                app:tint="?attr/colorOnSurface"
+                android:layout_marginEnd="16dp" />
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/biometric_unlock"
+                    android:textAppearance="?attr/textAppearanceTitleMedium"
+                    android:textColor="?attr/colorOnSurface" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/biometric_unlock_summary"
+                    android:textAppearance="?attr/textAppearanceBodyMedium"
+                    android:textColor="?attr/colorOnSurfaceVariant"
+                    android:layout_marginTop="2dp" />
+            </LinearLayout>
+
+            <com.google.android.material.materialswitch.MaterialSwitch
+                android:id="@+id/switch_biometric"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
+        </LinearLayout>
+
+        <!-- PIN码 -->
         <com.google.android.material.card.MaterialCardView
-            android:id="@+id/card_autofill"
+            android:id="@+id/card_pin_code"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:layout_marginBottom="16dp"
+            android:clickable="true"
+            android:focusable="true"
+            app:cardCornerRadius="12dp"
+            app:cardElevation="2dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:padding="16dp"
+                android:gravity="center_vertical">
+
+                <ImageView
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:src="@drawable/ic_password"
+                    android:contentDescription="@null"
+                    app:tint="?attr/colorOnSurface"
+                    android:layout_marginEnd="16dp" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/pin_code"
+                        android:textAppearance="?attr/textAppearanceTitleMedium"
+                        android:textColor="?attr/colorOnSurface" />
+
+                    <TextView
+                        android:id="@+id/tv_pin_status"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/pin_code_summary"
+                        android:textAppearance="?attr/textAppearanceBodyMedium"
+                        android:textColor="?attr/colorOnSurfaceVariant"
+                        android:layout_marginTop="2dp" />
+                </LinearLayout>
+
+                <ImageView
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:src="@drawable/ic_navigate_next"
+                    android:contentDescription="@null"
+                    app:tint="?attr/colorOnSurfaceVariant" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- 更改主密码 -->
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/card_change_password"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="16dp"
@@ -92,39 +194,22 @@
                 android:padding="16dp"
                 android:gravity="center_vertical">
 
-                <!-- 图标 -->
                 <ImageView
                     android:layout_width="24dp"
                     android:layout_height="24dp"
-                    android:src="@drawable/ic_settings_autofill"
+                    android:src="@drawable/ic_password"
                     android:contentDescription="@null"
-                    app:tint="?attr/colorPrimary"
+                    app:tint="?attr/colorOnSurface"
                     android:layout_marginEnd="16dp" />
 
-                <!-- 文本区域 -->
-                <LinearLayout
+                <TextView
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:orientation="vertical">
+                    android:text="@string/change_master_password"
+                    android:textAppearance="?attr/textAppearanceTitleMedium"
+                    android:textColor="?attr/colorOnSurface" />
 
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="@string/autofill_settings"
-                        android:textAppearance="?attr/textAppearanceTitleMedium"
-                        android:textColor="?attr/colorOnSurface" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="@string/autofill_service_description"
-                        android:textAppearance="?attr/textAppearanceBodyMedium"
-                        android:textColor="?attr/colorOnSurfaceVariant"
-                        android:layout_marginTop="2dp" />
-                </LinearLayout>
-
-                <!-- 导航箭头 -->
                 <ImageView
                     android:layout_width="24dp"
                     android:layout_height="24dp"
@@ -134,16 +219,28 @@
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- 外观设置卡片 -->
+        <!-- 分隔线和危险操作标题 -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/warning"
+            android:textAppearance="?attr/textAppearanceLabelMedium"
+            android:textColor="?attr/colorError"
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="8dp"
+            android:layout_marginStart="4dp" />
+
+        <!-- 注销登录 -->
         <com.google.android.material.card.MaterialCardView
-            android:id="@+id/card_appearance"
+            android:id="@+id/card_logout"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="16dp"
             android:clickable="true"
             android:focusable="true"
             app:cardCornerRadius="12dp"
-            app:cardElevation="2dp">
+            app:cardElevation="2dp"
+            app:strokeColor="?attr/colorOutline">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -152,16 +249,14 @@
                 android:padding="16dp"
                 android:gravity="center_vertical">
 
-                <!-- 图标 -->
                 <ImageView
                     android:layout_width="24dp"
                     android:layout_height="24dp"
-                    android:src="@drawable/ic_settings_appearance"
+                    android:src="@drawable/ic_close"
                     android:contentDescription="@null"
-                    app:tint="?attr/colorPrimary"
+                    app:tint="?attr/colorOnSurface"
                     android:layout_marginEnd="16dp" />
 
-                <!-- 文本区域 -->
                 <LinearLayout
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
@@ -171,20 +266,19 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="@string/appearance_settings"
+                        android:text="@string/logout"
                         android:textAppearance="?attr/textAppearanceTitleMedium"
                         android:textColor="?attr/colorOnSurface" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="@string/theme"
+                        android:text="@string/logout_summary"
                         android:textAppearance="?attr/textAppearanceBodyMedium"
                         android:textColor="?attr/colorOnSurfaceVariant"
                         android:layout_marginTop="2dp" />
                 </LinearLayout>
 
-                <!-- 导航箭头 -->
                 <ImageView
                     android:layout_width="24dp"
                     android:layout_height="24dp"
@@ -194,15 +288,17 @@
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- 关于卡片 -->
+        <!-- 删除账户 -->
         <com.google.android.material.card.MaterialCardView
-            android:id="@+id/card_about"
+            android:id="@+id/card_delete_account"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:clickable="true"
             android:focusable="true"
             app:cardCornerRadius="12dp"
-            app:cardElevation="2dp">
+            app:cardElevation="0dp"
+            app:strokeColor="?attr/colorError"
+            app:strokeWidth="1dp">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -211,16 +307,14 @@
                 android:padding="16dp"
                 android:gravity="center_vertical">
 
-                <!-- 图标 -->
                 <ImageView
                     android:layout_width="24dp"
                     android:layout_height="24dp"
-                    android:src="@drawable/ic_settings_about"
+                    android:src="@drawable/ic_delete"
                     android:contentDescription="@null"
-                    app:tint="?attr/colorPrimary"
+                    app:tint="?attr/colorError"
                     android:layout_marginEnd="16dp" />
 
-                <!-- 文本区域 -->
                 <LinearLayout
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
@@ -230,26 +324,25 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="@string/about"
+                        android:text="@string/delete_account"
                         android:textAppearance="?attr/textAppearanceTitleMedium"
-                        android:textColor="?attr/colorOnSurface" />
+                        android:textColor="?attr/colorError" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="@string/app_version"
+                        android:text="@string/delete_account_summary"
                         android:textAppearance="?attr/textAppearanceBodyMedium"
                         android:textColor="?attr/colorOnSurfaceVariant"
                         android:layout_marginTop="2dp" />
                 </LinearLayout>
 
-                <!-- 导航箭头 -->
                 <ImageView
                     android:layout_width="24dp"
                     android:layout_height="24dp"
                     android:src="@drawable/ic_navigate_next"
                     android:contentDescription="@null"
-                    app:tint="?attr/colorOnSurfaceVariant" />
+                    app:tint="?attr/colorError" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 

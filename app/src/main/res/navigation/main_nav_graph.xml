@@ -39,7 +39,64 @@
         android:id="@+id/nav_settings"
         android:name="com.ttt.safevault.ui.SettingsFragment"
         android:label="@string/nav_settings"
-        tools:layout="@layout/fragment_settings" />
+        tools:layout="@layout/fragment_settings">
+        <action
+            android:id="@+id/action_settings_to_accountSecurity"
+            app:destination="@id/accountSecurityFragment"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left"
+            app:popEnterAnim="@anim/slide_in_left"
+            app:popExitAnim="@anim/slide_out_right" />
+        <action
+            android:id="@+id/action_settings_to_autofillSettings"
+            app:destination="@id/autofillSettingsFragment"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left"
+            app:popEnterAnim="@anim/slide_in_left"
+            app:popExitAnim="@anim/slide_out_right" />
+        <action
+            android:id="@+id/action_settings_to_appearanceSettings"
+            app:destination="@id/appearanceSettingsFragment"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left"
+            app:popEnterAnim="@anim/slide_in_left"
+            app:popExitAnim="@anim/slide_out_right" />
+        <action
+            android:id="@+id/action_settings_to_about"
+            app:destination="@id/aboutFragment"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left"
+            app:popEnterAnim="@anim/slide_in_left"
+            app:popExitAnim="@anim/slide_out_right" />
+    </fragment>
+
+    <!-- 账户安全设置页面 -->
+    <fragment
+        android:id="@+id/accountSecurityFragment"
+        android:name="com.ttt.safevault.ui.AccountSecurityFragment"
+        android:label="账户安全"
+        tools:layout="@layout/fragment_account_security" />
+
+    <!-- 自动填充设置页面 -->
+    <fragment
+        android:id="@+id/autofillSettingsFragment"
+        android:name="com.ttt.safevault.ui.AutofillSettingsFragment"
+        android:label="自动填充设置"
+        tools:layout="@layout/fragment_autofill_settings" />
+
+    <!-- 外观设置页面 -->
+    <fragment
+        android:id="@+id/appearanceSettingsFragment"
+        android:name="com.ttt.safevault.ui.AppearanceSettingsFragment"
+        android:label="外观设置"
+        tools:layout="@layout/fragment_appearance_settings" />
+
+    <!-- 关于页面 -->
+    <fragment
+        android:id="@+id/aboutFragment"
+        android:name="com.ttt.safevault.ui.AboutFragment"
+        android:label="关于"
+        tools:layout="@layout/fragment_about" />
 
     <!-- 密码详情页面 (子页面) -->
     <fragment

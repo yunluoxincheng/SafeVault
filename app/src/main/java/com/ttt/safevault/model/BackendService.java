@@ -157,4 +157,58 @@ public interface BackendService {
             this.lastBackupDays = lastBackupDays;
         }
     }
+
+    // ========== 新增：账户操作接口 ==========
+
+    /**
+     * 设置PIN码
+     * @param pinCode PIN码（4-20位数字）
+     * @return true表示设置成功
+     */
+    boolean setPinCode(String pinCode);
+
+    /**
+     * 验证PIN码
+     * @param pinCode 要验证的PIN码
+     * @return true表示PIN码正确
+     */
+    boolean verifyPinCode(String pinCode);
+
+    /**
+     * 清除PIN码
+     * @return true表示清除成功
+     */
+    boolean clearPinCode();
+
+    /**
+     * 检查PIN码是否已启用
+     * @return true表示PIN码已启用
+     */
+    boolean isPinCodeEnabled();
+
+    /**
+     * 注销登录
+     * 清除内存中的敏感数据，返回登录状态
+     */
+    void logout();
+
+    /**
+     * 删除账户
+     * 永久删除所有本地和云端数据
+     * @return true表示删除成功
+     */
+    boolean deleteAccount();
+    
+    /**
+     * 使用生物识别解锁应用
+     * 用于生物识别认证成功后的解锁操作
+     * @return true表示解锁成功，false表示失败
+     */
+    boolean unlockWithBiometric();
+    
+    /**
+     * 检查是否可以使用生物识别认证
+     * @return true表示生物识别认证已启用且可用
+     */
+    boolean canUseBiometricAuthentication();
 }
