@@ -9,6 +9,7 @@ import android.text.InputType;
 import android.util.Log;
 import android.view.View;
 import android.view.autofill.AutofillId;
+import android.view.autofill.AutofillValue;
 
 import com.ttt.safevault.autofill.model.AutofillField;
 import com.ttt.safevault.autofill.model.AutofillParsedData;
@@ -128,7 +129,132 @@ public class AutofillParser {
         // 使用最新的FillContext
         FillContext fillContext = contexts.get(contexts.size() - 1);
         AssistStructure structure = fillContext.getStructure();
-        return parseAssistStructure(structure);
+        AutofillParsedData parsedData = parseAssistStructure(structure);
+        
+        // 提取实际字段值
+        if (parsedData != null) {
+            extractFieldValues(structure, parsedData);
+        }
+        
+        return parsedData;
+    }
+
+    /**
+     * 从 AssistStructure 中提取字段的实际值
+     */
+    private static void extractFieldValues(AssistStructure structure, AutofillParsedData parsedData) {
+        logDebug("=== 开始提取字段实际值 ===");
+        
+        int windowCount = structure.getWindowNodeCount();
+        for (int i = 0; i < windowCount; i++) {
+            AssistStructure.WindowNode windowNode = structure.getWindowNodeAt(i);
+            AssistStructure.ViewNode rootNode = windowNode.getRootViewNode();
+            
+            if (rootNode != null) {
+                extractFieldValuesFromNode(rootNode, parsedData);
+            }
+        }
+    }
+
+    /**
+     * 递归提取 ViewNode 中的字段值
+     */
+    private static void extractFieldValuesFromNode(AssistStructure.ViewNode node, 
+                                                   AutofillParsedData parsedData) {
+        // 检查是否有 AutofillValue
+        AutofillId autofillId = node.getAutofillId();
+        AutofillValue autofillValue = node.getAutofillValue();
+        
+        if (autofillId != null && autofillValue != null) {
+            String value = extractValueFromAutofillValue(autofillValue, node);
+            
+            if (value != null && !value.isEmpty()) {
+                // 在 parsedData 的字段列表中找到对应的字段并更新值
+                updateFieldValue(parsedData, autofillId, value);
+                
+                // 日志输出（密码不记录明文）
+                AutofillField.FieldType fieldType = getFieldTypeById(parsedData, autofillId);
+                if (fieldType == AutofillField.FieldType.PASSWORD) {
+                    logDebug("提取到密码字段值（长度: " + value.length() + "）");
+                } else {
+                    logDebug("提取到字段值: " + value + " (type: " + fieldType + ")");
+                }
+            }
+        }
+        
+        // 递归处理子节点
+        int childCount = node.getChildCount();
+        for (int i = 0; i < childCount; i++) {
+            AssistStructure.ViewNode childNode = node.getChildAt(i);
+            if (childNode != null) {
+                extractFieldValuesFromNode(childNode, parsedData);
+            }
+        }
+    }
+
+    /**
+     * 从 AutofillValue 提取字符串值
+     */
+    private static String extractValueFromAutofillValue(AutofillValue autofillValue, 
+                                                        AssistStructure.ViewNode node) {
+        if (autofillValue == null) {
+            return null;
+        }
+        
+        // 尝试从 AutofillValue 获取文本值
+        if (autofillValue.isText()) {
+            CharSequence text = autofillValue.getTextValue();
+            if (text != null) {
+                return text.toString();
+            }
+        }
+        
+        // 回退到 getText()
+        CharSequence nodeText = node.getText();
+        if (nodeText != null && nodeText.length() > 0) {
+            return nodeText.toString();
+        }
+        
+        return null;
+    }
+
+    /**
+     * 更新 parsedData 中对应字段的值
+     */
+    private static void updateFieldValue(AutofillParsedData parsedData, 
+                                        AutofillId targetId, String value) {
+        List<AutofillField> fields = parsedData.getFields();
+        
+        // 找到对应的字段并替换为带有 value 的新字段
+        for (int i = 0; i < fields.size(); i++) {
+            AutofillField field = fields.get(i);
+            if (field.getAutofillId().equals(targetId)) {
+                // 创建新的 AutofillField，包含实际值
+                AutofillField newField = new AutofillField(
+                    field.getAutofillId(),
+                    field.getHint(),
+                    value,
+                    field.getInputType(),
+                    field.isFocused(),
+                    field.getFieldType()
+                );
+                fields.set(i, newField);
+                break;
+            }
+        }
+    }
+
+    /**
+     * 根据 AutofillId 获取字段类型
+     */
+    private static AutofillField.FieldType getFieldTypeById(AutofillParsedData parsedData, 
+                                                            AutofillId autofillId) {
+        for (AutofillField field : parsedData.getFields()) {
+            if (field.getAutofillId().equals(autofillId)) {
+                return field.getFieldType();
+            }
+        }
+        return AutofillField.FieldType.UNKNOWN;
     }
 
     /**
@@ -180,7 +306,7 @@ public class AutofillParser {
     }
 
     /**
-     * 提取元数据（域名、包名、应用名称）
+     * 提取元数据（域名、包名、应用名称、标题）
      */
     private static void extractMetadata(AssistStructure.ViewNode node, 
                                        AutofillParsedData.Builder builder) {
@@ -197,6 +323,65 @@ public class AutofillParser {
         if (idPackage != null && !idPackage.isEmpty()) {
             builder.setPackageName(idPackage);
             logDebug("检测到包名: " + idPackage);
+        }
+        
+        // 提取页面标题（尝试从多个来源获取）
+        extractTitle(node, builder);
+    }
+
+    /**
+     * 提取页面标题
+     */
+    private static void extractTitle(AssistStructure.ViewNode node, 
+                                    AutofillParsedData.Builder builder) {
+        // 如果已经有标题，直接返回
+        // if (builder.title != null && !builder.title.isEmpty()) {
+        //     return;
+        // }
+        
+        // 尝试从 ViewNode 的 text 属性获取（可能是页面标题）
+        CharSequence text = node.getText();
+        if (text != null && text.length() > 0) {
+            String textStr = text.toString().trim();
+            // 检查是否可能是标题（不太短也不太长）
+            if (textStr.length() > 3 && textStr.length() < 100) {
+                // 避免将常见的表单标签当作标题
+                String lowerText = textStr.toLowerCase(Locale.ROOT);
+                boolean isFormLabel = false;
+                for (String hint : USERNAME_HINTS) {
+                    if (lowerText.contains(hint)) {
+                        isFormLabel = true;
+                        break;
+                    }
+                }
+                for (String hint : PASSWORD_HINTS) {
+                    if (lowerText.contains(hint)) {
+                        isFormLabel = true;
+                        break;
+                    }
+                }
+                
+                if (!isFormLabel) {
+                    logDebug("检测到可能的标题: " + textStr);
+                    // 不直接设置，留在后端处理
+                }
+            }
+        }
+        
+        // Web 页面：尝试从 HTML 信息中获取 title
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            android.view.ViewStructure.HtmlInfo htmlInfo = node.getHtmlInfo();
+            if (htmlInfo != null) {
+                String htmlTag = htmlInfo.getTag();
+                if ("title".equalsIgnoreCase(htmlTag)) {
+                    CharSequence titleText = node.getText();
+                    if (titleText != null && titleText.length() > 0) {
+                        String title = titleText.toString().trim();
+                        builder.setTitle(title);
+                        logDebug("从 HTML <title> 提取到标题: " + title);
+                    }
+                }
+            }
         }
     }
 
@@ -708,25 +893,35 @@ public class AutofillParser {
      */
     private static void logDebug(String message) {
         Log.d(TAG, message);
-        
+
         // 同时输出到文件（用于手机端调试）
+        // 使用静态变量缓存FileWriter，减少频繁创建销毁的开销
+        FileWriter writer = null;
         try {
             String logDir = "/storage/emulated/0/Android/data/com.ttt.safevault/files/autofill_logs/";
             File dir = new File(logDir);
             if (!dir.exists()) {
                 dir.mkdirs();
             }
-            
+
             String timestamp = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.getDefault())
                     .format(new Date());
             String logMessage = timestamp + " [" + TAG + "] " + message + "\n";
-            
+
             File logFile = new File(dir, "autofill_parser.log");
-            FileWriter writer = new FileWriter(logFile, true);
+            writer = new FileWriter(logFile, true);
             writer.write(logMessage);
-            writer.close();
         } catch (IOException e) {
             // 忽略日志写入错误
+        } finally {
+            // 确保FileWriter正确关闭，防止资源泄漏
+            if (writer != null) {
+                try {
+                    writer.close();
+                } catch (IOException e) {
+                    // 忽略关闭错误
+                }
+            }
         }
     }
 }

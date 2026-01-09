@@ -58,53 +58,13 @@
                         android:layout_height="wrap_content">
 
                         <com.google.android.material.radiobutton.MaterialRadioButton
-                            android:id="@+id/radioShareToFriend"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:text="@string/share_to_friend"
-                            android:checked="true" />
-
-                        <com.google.android.material.radiobutton.MaterialRadioButton
                             android:id="@+id/radioDirectShare"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:text="@string/direct_share" />
+                            android:text="@string/offline_share"
+                            android:checked="true" />
 
                     </RadioGroup>
-
-                </LinearLayout>
-
-            </com.google.android.material.card.MaterialCardView>
-
-            <!-- 好友选择（仅在选择分享给好友时显示） -->
-            <com.google.android.material.card.MaterialCardView
-                android:id="@+id/cardFriendSelection"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="16dp"
-                android:visibility="visible"
-                app:cardElevation="2dp"
-                app:cardCornerRadius="12dp">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="16dp">
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="@string/select_friend"
-                        android:textAppearance="?attr/textAppearanceTitleMedium"
-                        android:textColor="?attr/colorOnSurface"
-                        android:layout_marginBottom="12dp" />
-
-                    <Spinner
-                        android:id="@+id/spinnerFriends"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:minHeight="48dp" />
 
                 </LinearLayout>
 

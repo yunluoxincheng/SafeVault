@@ -55,13 +55,6 @@
             app:popEnterAnim="@anim/slide_in_left"
             app:popExitAnim="@anim/slide_out_right" />
         <action
-            android:id="@+id/action_settings_to_friendList"
-            app:destination="@id/friendListFragment"
-            app:enterAnim="@anim/slide_in_right"
-            app:exitAnim="@anim/slide_out_left"
-            app:popEnterAnim="@anim/slide_in_left"
-            app:popExitAnim="@anim/slide_out_right" />
-        <action
             android:id="@+id/action_settings_to_shareSettings"
             app:destination="@id/shareSettingsFragment"
             app:enterAnim="@anim/slide_in_right"
@@ -139,13 +132,6 @@
             app:argType="string"
             app:nullable="true" />
     </fragment>
-
-    <!-- 好友列表页面 -->
-    <fragment
-        android:id="@+id/friendListFragment"
-        android:name="com.ttt.safevault.ui.friend.FriendListFragment"
-        android:label="@string/friend_list"
-        tools:layout="@layout/fragment_friend_list" />
 
     <!-- 分享设置页面 -->
     <fragment

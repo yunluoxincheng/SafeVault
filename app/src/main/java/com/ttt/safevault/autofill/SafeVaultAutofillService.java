@@ -3,6 +3,8 @@ package com.ttt.safevault.autofill;
 import android.app.PendingIntent;
 import android.content.Intent;
 import android.content.IntentSender;
+import android.content.pm.ApplicationInfo;
+import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.CancellationSignal;
 import android.service.autofill.AutofillService;
@@ -94,8 +96,15 @@ public class SafeVaultAutofillService extends AutofillService {
                     return;
                 }
 
-                // 安全检查：检查是否在阻止列表中
+                // 安全检查：排除自己的应用
                 String packageName = parsedData.getPackageName();
+                if (getPackageName().equals(packageName)) {
+                    logDebug("忽略自己的应用，不提供自动填充");
+                    callback.onSuccess(null);
+                    return;
+                }
+                
+                // 安全检查：检查是否在阻止列表中
                 if (securityConfig.isBlocked(packageName)) {
                     logDebug("应用在阻止列表中: " + packageName);
                     callback.onSuccess(null);
@@ -177,15 +186,53 @@ public class SafeVaultAutofillService extends AutofillService {
                 callback.onFailure("解析保存请求失败");
                 return;
             }
+            
+            // 安全检查：排除自己的应用
+            String packageName = parsedData.getPackageName();
+            if (getPackageName().equals(packageName)) {
+                logDebug("忽略自己的应用，不触发保存");
+                callback.onFailure("忽略自己的应用");
+                return;
+            }
 
-            // 提取用户名和密码值
-            String username = extractFieldValue(parsedData, AutofillField.FieldType.USERNAME);
-            String password = extractFieldValue(parsedData, AutofillField.FieldType.PASSWORD);
+            // 提取用户名和密码值（使用新的提取方法）
+            String username = extractFieldValueByType(parsedData, AutofillField.FieldType.USERNAME);
+            if (username == null || username.isEmpty()) {
+                // 尝试邮箱和手机号
+                username = extractFieldValueByType(parsedData, AutofillField.FieldType.EMAIL);
+                if (username == null || username.isEmpty()) {
+                    username = extractFieldValueByType(parsedData, AutofillField.FieldType.PHONE);
+                }
+            }
+            
+            String password = extractFieldValueByType(parsedData, AutofillField.FieldType.PASSWORD);
 
             if (password == null || password.isEmpty()) {
                 logDebug("密码为空，无法保存");
                 callback.onFailure("密码不能为空");
                 return;
+            }
+            
+            logDebug("提取到用户名: " + (username != null ? username : "(空)"));
+            logDebug("提取到密码长度: " + password.length());
+
+            // 获取应用名称（如果是原生应用）
+            String appName = null;
+            if (parsedData.getPackageName() != null && !parsedData.isWeb()) {
+                appName = getApplicationName(parsedData.getPackageName());
+                logDebug("提取到应用名称: " + appName);
+            }
+            
+            // 获取标题（优先使用提取的标题，否则使用域名/应用名）
+            String title = parsedData.getTitle();
+            if (title == null || title.isEmpty()) {
+                if (parsedData.isWeb() && parsedData.getDomain() != null) {
+                    title = parsedData.getDomain();
+                } else if (appName != null) {
+                    title = appName;
+                } else if (parsedData.getPackageName() != null) {
+                    title = parsedData.getPackageName();
+                }
             }
 
             // 创建Intent启动保存Activity
@@ -194,6 +241,7 @@ public class SafeVaultAutofillService extends AutofillService {
             saveIntent.putExtra("password", password);
             saveIntent.putExtra("domain", parsedData.getDomain());
             saveIntent.putExtra("packageName", parsedData.getPackageName());
+            saveIntent.putExtra("title", title);
             saveIntent.putExtra("isWeb", parsedData.isWeb());
             saveIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
 
@@ -256,14 +304,53 @@ public class SafeVaultAutofillService extends AutofillService {
     }
 
     /**
-     * 从解析数据中提取字段值
+     * 从解析数据中按类型提取字段值（使用新的 getValue() 方法）
      */
+    private String extractFieldValueByType(AutofillParsedData parsedData, 
+                                          AutofillField.FieldType fieldType) {
+        for (AutofillField field : parsedData.getFields()) {
+            if (field.getFieldType() == fieldType) {
+                // 使用新的 getValue() 方法获取实际值
+                String value = field.getValue();
+                if (value != null && !value.isEmpty()) {
+                    return value;
+                }
+                // 回退到 hint（这是为了兼容性）
+                return field.getHint();
+            }
+        }
+        return null;
+    }
+
+    /**
+     * 获取应用名称
+     */
+    private String getApplicationName(String packageName) {
+        try {
+            PackageManager pm = getPackageManager();
+            ApplicationInfo appInfo = pm.getApplicationInfo(packageName, 0);
+            CharSequence appLabel = pm.getApplicationLabel(appInfo);
+            if (appLabel != null) {
+                return appLabel.toString();
+            }
+        } catch (PackageManager.NameNotFoundException e) {
+            logDebug("无法获取应用名称: " + e.getMessage());
+        }
+        // 回退到使用包名
+        return packageName;
+    }
+
+    /**
+     * 从解析数据中提取字段值（旧方法，保留以保证兼容性）
+     * @deprecated 使用 extractFieldValueByType 替代
+     */
+    @Deprecated
     private String extractFieldValue(AutofillParsedData parsedData, 
                                      AutofillField.FieldType fieldType) {
         for (AutofillField field : parsedData.getFields()) {
             if (field.getFieldType() == fieldType) {
-                // 注意：这里只能获取hint，实际值需要从SaveRequest中获取
-                // 实际实现中需要使用AssistStructure.ViewNode.getText()
+                // 注意：这里只能获取hint，实际值需要从 SaveRequest 中获取
+                // 实际实现中需要使用 AssistStructure.ViewNode.getText()
                 return field.getHint();
             }
         }
@@ -275,32 +362,54 @@ public class SafeVaultAutofillService extends AutofillService {
      */
     private void logDebug(String message) {
         Log.d(TAG, message);
-        
+
         // 同时输出到文件（用于手机端调试）
+        FileWriter writer = null;
         try {
             String logDir = "/storage/emulated/0/Android/data/com.ttt.safevault/files/autofill_logs/";
             File dir = new File(logDir);
             if (!dir.exists()) {
                 dir.mkdirs();
             }
-            
+
             String timestamp = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.getDefault())
                     .format(new Date());
             String logMessage = timestamp + " [" + TAG + "] " + message + "\n";
-            
+
             File logFile = new File(dir, "autofill_service.log");
-            FileWriter writer = new FileWriter(logFile, true);
+            writer = new FileWriter(logFile, true);
             writer.write(logMessage);
-            writer.close();
         } catch (IOException e) {
             // 忽略日志写入错误
+        } finally {
+            // 确保FileWriter正确关闭，防止资源泄漏
+            if (writer != null) {
+                try {
+                    writer.close();
+                } catch (IOException e) {
+                    // 忽略关闭错误
+                }
+            }
         }
     }
 
     @Override
     public void onDestroy() {
         super.onDestroy();
-        executor.shutdown();
+
+        // 清除敏感引用，防止内存泄漏
+        if (backendService != null) {
+            backendService = null;
+        }
+        if (securityConfig != null) {
+            securityConfig = null;
+        }
+
+        // 正确关闭ExecutorService，使用shutdownNow中断正在执行的任务
+        if (executor != null && !executor.isShutdown()) {
+            executor.shutdownNow();
+        }
+
         logDebug("=== SafeVaultAutofillService onDestroy ===");
     }
 }

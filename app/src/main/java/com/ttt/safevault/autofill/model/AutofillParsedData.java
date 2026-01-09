@@ -12,6 +12,7 @@ public class AutofillParsedData {
     private final String domain;
     private final String packageName;
     private final String applicationName;
+    private final String title;        // 页面或应用标题
     private final boolean isWeb;
 
     private AutofillParsedData(Builder builder) {
@@ -19,6 +20,7 @@ public class AutofillParsedData {
         this.domain = builder.domain;
         this.packageName = builder.packageName;
         this.applicationName = builder.applicationName;
+        this.title = builder.title;
         this.isWeb = builder.isWeb;
     }
 
@@ -36,6 +38,10 @@ public class AutofillParsedData {
 
     public String getApplicationName() {
         return applicationName;
+    }
+
+    public String getTitle() {
+        return title;
     }
 
     public boolean isWeb() {
@@ -79,6 +85,7 @@ public class AutofillParsedData {
         private String domain;
         private String packageName;
         private String applicationName;
+        private String title;
         private boolean isWeb;
 
         public Builder addField(AutofillField field) {
@@ -101,6 +108,11 @@ public class AutofillParsedData {
             return this;
         }
 
+        public Builder setTitle(String title) {
+            this.title = title;
+            return this;
+        }
+
         public Builder setIsWeb(boolean isWeb) {
             this.isWeb = isWeb;
             return this;
@@ -118,6 +130,7 @@ public class AutofillParsedData {
                 ", domain='" + domain + '\'' +
                 ", packageName='" + packageName + '\'' +
                 ", applicationName='" + applicationName + '\'' +
+                ", title='" + title + '\'' +
                 ", isWeb=" + isWeb +
                 '}';
     }

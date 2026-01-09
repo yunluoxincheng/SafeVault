@@ -11,6 +11,9 @@ import com.ttt.safevault.ServiceLocator;
 import com.ttt.safevault.databinding.ActivityAutofillSaveBinding;
 import com.ttt.safevault.model.BackendService;
 import com.ttt.safevault.model.PasswordItem;
+import com.ttt.safevault.utils.AutofillUtils;
+
+import java.util.List;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -25,6 +28,18 @@ public class AutofillSaveActivity extends AppCompatActivity {
     private ActivityAutofillSaveBinding binding;
     private BackendService backendService;
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
+    
+    // Intent 数据
+    private String username;
+    private String password;
+    private String domain;
+    private String packageName;
+    private String title;
+    private boolean isWeb;
+    
+    // 去重检查结果
+    private boolean isDuplicate = false;
+    private PasswordItem existingItem = null;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -50,33 +65,32 @@ public class AutofillSaveActivity extends AppCompatActivity {
         }
 
         // 获取Intent数据
-        String username = getIntent().getStringExtra("username");
-        String password = getIntent().getStringExtra("password");
-        String domain = getIntent().getStringExtra("domain");
-        String packageName = getIntent().getStringExtra("packageName");
-        boolean isWeb = getIntent().getBooleanExtra("isWeb", false);
+        username = getIntent().getStringExtra("username");
+        password = getIntent().getStringExtra("password");
+        domain = getIntent().getStringExtra("domain");
+        packageName = getIntent().getStringExtra("packageName");
+        title = getIntent().getStringExtra("title");
+        isWeb = getIntent().getBooleanExtra("isWeb", false);
 
         // 填充表单
-        if (username != null) {
+        if (username != null && !username.isEmpty()) {
             binding.usernameInput.setText(username);
         }
 
-        if (password != null) {
+        if (password != null && !password.isEmpty()) {
             binding.passwordInput.setText(password);
         }
 
-        // 设置标题（网站名或应用名）
-        String title;
+        // 设置标题和网站/应用
+        if (title != null && !title.isEmpty()) {
+            binding.titleInput.setText(title);
+        }
+        
         if (isWeb && domain != null) {
-            title = domain;
             binding.websiteInput.setText(domain);
         } else if (packageName != null) {
-            title = packageName;
             binding.websiteInput.setText("android://" + packageName);
-        } else {
-            title = "";
         }
-        binding.titleInput.setText(title);
 
         // 保存按钮
         binding.saveButton.setOnClickListener(v -> saveCredential());
@@ -86,25 +100,128 @@ public class AutofillSaveActivity extends AppCompatActivity {
             setResult(RESULT_CANCELED);
             finish();
         });
+        
+        // 启动去重检查
+        checkDuplicateCredential();
+    }
+
+    /**
+     * 检查凭据是否重复
+     */
+    private void checkDuplicateCredential() {
+        // 显示加载状态
+        runOnUiThread(() -> {
+            binding.saveButton.setEnabled(false);
+            binding.saveButton.setText(R.string.checking);
+        });
+        
+        executor.execute(() -> {
+            try {
+                // 检查是否已解锁
+                if (backendService == null || !backendService.isUnlocked()) {
+                    runOnUiThread(() -> {
+                        binding.saveButton.setEnabled(true);
+                        binding.saveButton.setText(R.string.button_save);
+                    });
+                    return;
+                }
+                
+                // 构造搜索关键词
+                String searchKeyword = null;
+                if (isWeb && domain != null) {
+                    searchKeyword = domain;
+                } else if (packageName != null) {
+                    searchKeyword = packageName;
+                }
+                
+                if (searchKeyword == null || searchKeyword.isEmpty()) {
+                    runOnUiThread(() -> {
+                        binding.saveButton.setEnabled(true);
+                        binding.saveButton.setText(R.string.button_save);
+                    });
+                    return;
+                }
+                
+                // 搜索匹配的凭据
+                List<PasswordItem> items = backendService.search(searchKeyword);
+                
+                if (items != null && !items.isEmpty()) {
+                    // 检查是否有相同的用户名
+                    String currentUsername = username != null ? username.trim() : "";
+                    
+                    for (PasswordItem item : items) {
+                        String itemDomain = AutofillUtils.extractDomainFromUrl(item.getUrl());
+                        String currentDomain = isWeb ? domain : packageName;
+                        
+                        // 检查域名和用户名是否匹配
+                        boolean domainMatches = false;
+                        if (itemDomain != null && currentDomain != null) {
+                            if (isWeb) {
+                                domainMatches = AutofillUtils.domainsMatch(itemDomain, currentDomain);
+                            } else {
+                                // 包名精确匹配
+                                domainMatches = itemDomain.equals(currentDomain);
+                            }
+                        }
+                        
+                        if (domainMatches) {
+                            String itemUsername = item.getUsername() != null ? item.getUsername().trim() : "";
+                            if (itemUsername.equalsIgnoreCase(currentUsername)) {
+                                // 找到重复凭据
+                                isDuplicate = true;
+                                existingItem = item;
+                                break;
+                            }
+                        }
+                    }
+                }
+                
+                // 更新UI
+                runOnUiThread(() -> {
+                    binding.saveButton.setEnabled(true);
+                    binding.saveButton.setText(R.string.button_save);
+                    
+                    if (isDuplicate) {
+                        showDuplicateWarning();
+                    }
+                });
+                
+            } catch (Exception e) {
+                e.printStackTrace();
+                runOnUiThread(() -> {
+                    binding.saveButton.setEnabled(true);
+                    binding.saveButton.setText(R.string.button_save);
+                });
+            }
+        });
+    }
+
+    /**
+     * 显示重复凭据警告
+     */
+    private void showDuplicateWarning() {
+        // TODO: 可以在这里显示一个对话框或警告消息
+        // 目前简单显示一个 Toast
+        Toast.makeText(this, R.string.autofill_duplicate_credential_warning, Toast.LENGTH_LONG).show();
     }
 
     /**
      * 保存凭据
      */
     private void saveCredential() {
-        String title = binding.titleInput.getText().toString().trim();
-        String username = binding.usernameInput.getText().toString().trim();
-        String password = binding.passwordInput.getText().toString().trim();
-        String website = binding.websiteInput.getText().toString().trim();
-        String notes = binding.notesInput.getText().toString().trim();
+        String titleText = binding.titleInput.getText().toString().trim();
+        String usernameText = binding.usernameInput.getText().toString().trim();
+        String passwordText = binding.passwordInput.getText().toString().trim();
+        String websiteText = binding.websiteInput.getText().toString().trim();
+        String notesText = binding.notesInput.getText().toString().trim();
 
         // 验证必填字段
-        if (username.isEmpty()) {
+        if (usernameText.isEmpty()) {
             binding.usernameInputLayout.setError(getString(R.string.error_username_required));
             return;
         }
 
-        if (password.isEmpty()) {
+        if (passwordText.isEmpty()) {
             binding.passwordInputLayout.setError(getString(R.string.error_password_required));
             return;
         }
@@ -116,6 +233,7 @@ public class AutofillSaveActivity extends AppCompatActivity {
         // 禁用按钮防止重复点击
         binding.saveButton.setEnabled(false);
         binding.cancelButton.setEnabled(false);
+        binding.saveButton.setText(R.string.saving);
 
         // 异步保存
         executor.execute(() -> {
@@ -131,11 +249,11 @@ public class AutofillSaveActivity extends AppCompatActivity {
 
                 // 创建PasswordItem
                 PasswordItem item = new PasswordItem();
-                item.setTitle(title.isEmpty() ? username : title);
-                item.setUsername(username);
-                item.setPassword(password);
-                item.setUrl(website);
-                item.setNotes(notes);
+                item.setTitle(titleText.isEmpty() ? usernameText : titleText);
+                item.setUsername(usernameText);
+                item.setPassword(passwordText);
+                item.setUrl(websiteText);
+                item.setNotes(notesText);
 
                 // 保存
                 int savedId = backendService.saveItem(item);
@@ -155,8 +273,9 @@ public class AutofillSaveActivity extends AppCompatActivity {
                 e.printStackTrace();
                 runOnUiThread(() -> {
                     Toast.makeText(this, R.string.autofill_save_failed, Toast.LENGTH_SHORT).show();
-                    setResult(RESULT_CANCELED);
-                    finish();
+                    binding.saveButton.setEnabled(true);
+                    binding.cancelButton.setEnabled(true);
+                    binding.saveButton.setText(R.string.button_save);
                 });
             }
         });
@@ -172,6 +291,25 @@ public class AutofillSaveActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        executor.shutdown();
+
+        // 清除敏感数据，防止内存泄漏
+        if (password != null) {
+            password = null;
+        }
+        if (username != null) {
+            username = null;
+        }
+        if (existingItem != null) {
+            existingItem = null;
+        }
+
+        // 正确关闭ExecutorService，使用shutdownNow中断正在执行的任务
+        if (executor != null && !executor.isShutdown()) {
+            executor.shutdownNow();
+        }
+
+        // 清理binding引用，防止内存泄漏
+        binding = null;
+        backendService = null;
     }
 }

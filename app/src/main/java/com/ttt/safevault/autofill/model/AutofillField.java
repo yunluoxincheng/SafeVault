@@ -9,6 +9,7 @@ import android.view.autofill.AutofillId;
 public class AutofillField {
     private final AutofillId autofillId;
     private final String hint;
+    private final String value;        // 实际输入的值
     private final int inputType;
     private final boolean isFocused;
     private final FieldType fieldType;
@@ -27,8 +28,14 @@ public class AutofillField {
 
     public AutofillField(AutofillId autofillId, String hint, int inputType, 
                         boolean isFocused, FieldType fieldType) {
+        this(autofillId, hint, null, inputType, isFocused, fieldType);
+    }
+
+    public AutofillField(AutofillId autofillId, String hint, String value, int inputType, 
+                        boolean isFocused, FieldType fieldType) {
         this.autofillId = autofillId;
         this.hint = hint;
+        this.value = value;
         this.inputType = inputType;
         this.isFocused = isFocused;
         this.fieldType = fieldType;
@@ -40,6 +47,10 @@ public class AutofillField {
 
     public String getHint() {
         return hint;
+    }
+
+    public String getValue() {
+        return value;
     }
 
     public int getInputType() {
@@ -59,6 +70,7 @@ public class AutofillField {
         return "AutofillField{" +
                 "autofillId=" + autofillId +
                 ", hint='" + hint + '\'' +
+                ", hasValue=" + (value != null && !value.isEmpty()) +
                 ", inputType=" + inputType +
                 ", isFocused=" + isFocused +
                 ", fieldType=" + fieldType +

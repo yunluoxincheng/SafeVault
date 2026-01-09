@@ -211,47 +211,6 @@ public interface BackendService {
      */
     boolean canUseBiometricAuthentication();
 
-    // ========== 新增：用户管理接口 ==========
-
-    /**
-     * 获取当前用户配置文件
-     * @return 当前用户的 UserProfile
-     */
-    UserProfile getUserProfile();
-
-    /**
-     * 通过用户ID或二维码获取用户信息
-     * @param userId 用户ID 或 二维码内容
-     * @return 用户信息，不存在返回 null
-     */
-    UserProfile getUserById(String userId);
-
-    /**
-     * 添加好友
-     * @param userId 要添加的用户ID
-     * @return true 表示添加成功
-     */
-    boolean addFriend(String userId);
-
-    /**
-     * 获取好友列表
-     * @return 好友列表
-     */
-    List<Friend> getFriendList();
-
-    /**
-     * 删除好友
-     * @param friendId 好友ID
-     * @return true 表示删除成功
-     */
-    boolean removeFriend(String friendId);
-
-    /**
-     * 生成用户分享二维码
-     * @return 二维码内容（包含用户ID和公钥）
-     */
-    String generateUserQRCode();
-
     // ========== 新增：分享管理接口 ==========
 
     /**

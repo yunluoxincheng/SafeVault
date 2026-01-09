@@ -12,12 +12,10 @@ import com.ttt.safevault.data.AppDatabase;
 import com.ttt.safevault.data.EncryptedPasswordEntity;
 import com.ttt.safevault.data.PasswordDao;
 import com.ttt.safevault.model.BackendService;
-import com.ttt.safevault.model.Friend;
 import com.ttt.safevault.model.PasswordItem;
 import com.ttt.safevault.model.PasswordShare;
 import com.ttt.safevault.model.SharePermission;
 import com.ttt.safevault.model.ShareStatus;
-import com.ttt.safevault.model.UserProfile;
 import com.ttt.safevault.security.BiometricKeyManager;
 import com.ttt.safevault.security.SecurityConfig;
 
@@ -44,9 +42,6 @@ public class BackendServiceImpl implements BackendService {
     private static final String PREF_BIOMETRIC_ENCRYPTED_PASSWORD = "biometric_encrypted_password";
     private static final String PREF_BIOMETRIC_IV = "biometric_iv";
     private static final String PREF_USER_ID = "user_id";
-    private static final String PREF_USER_DISPLAY_NAME = "user_display_name";
-    private static final String PREF_USER_PUBLIC_KEY = "user_public_key";
-    private static final String PREF_USER_CREATED_AT = "user_created_at";
 
     // 密码生成字符集
     private static final String UPPERCASE = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -61,11 +56,9 @@ public class BackendServiceImpl implements BackendService {
     private final SharedPreferences prefs;
     private final SecureRandom secureRandom;
     private BiometricKeyManager biometricKeyManager;
-    
+
     // 分享功能相关的内存存储（简化实现，生产环境应使用数据库）
-    private final Map<String, Friend> friendsMap = new ConcurrentHashMap<>();
     private final Map<String, PasswordShare> sharesMap = new ConcurrentHashMap<>();
-    private UserProfile currentUserProfile;
 
     public BackendServiceImpl(@NonNull Context context) {
         this.context = context.getApplicationContext();
@@ -619,124 +612,19 @@ public class BackendServiceImpl implements BackendService {
                prefs.contains(PREF_BIOMETRIC_IV);
     }
 
-    // ========== 新增：用户管理接口实现 ==========
+    // ========== 辅助方法 ==========
 
-    @Override
-    public UserProfile getUserProfile() {
-        if (currentUserProfile != null) {
-            return currentUserProfile;
-        }
-        
-        // 从 SharedPreferences 加载用户配置
+    /**
+     * 获取当前用户ID
+     */
+    private String getCurrentUserId() {
         String userId = prefs.getString(PREF_USER_ID, null);
         if (userId == null) {
             // 创建新用户
             userId = "user_" + UUID.randomUUID().toString();
-            String displayName = "默认用户";
-            String publicKey = "public_key_" + UUID.randomUUID().toString(); // 简化实现
-            long createdAt = System.currentTimeMillis();
-            
-            // 保存到 SharedPreferences
-            prefs.edit()
-                .putString(PREF_USER_ID, userId)
-                .putString(PREF_USER_DISPLAY_NAME, displayName)
-                .putString(PREF_USER_PUBLIC_KEY, publicKey)
-                .putLong(PREF_USER_CREATED_AT, createdAt)
-                .apply();
-            
-            currentUserProfile = new UserProfile(userId, displayName, publicKey);
-            currentUserProfile.setCreatedAt(createdAt);
-        } else {
-            String displayName = prefs.getString(PREF_USER_DISPLAY_NAME, "默认用户");
-            String publicKey = prefs.getString(PREF_USER_PUBLIC_KEY, "");
-            long createdAt = prefs.getLong(PREF_USER_CREATED_AT, System.currentTimeMillis());
-            
-            currentUserProfile = new UserProfile(userId, displayName, publicKey);
-            currentUserProfile.setCreatedAt(createdAt);
+            prefs.edit().putString(PREF_USER_ID, userId).apply();
         }
-        
-        return currentUserProfile;
-    }
-
-    @Override
-    public UserProfile getUserById(String userId) {
-        // 简化实现：从好友列表中查找
-        Friend friend = friendsMap.get(userId);
-        if (friend != null) {
-            UserProfile profile = new UserProfile();
-            profile.setUserId(friend.getFriendId());
-            profile.setDisplayName(friend.getDisplayName());
-            profile.setPublicKey(friend.getPublicKey());
-            profile.setCreatedAt(friend.getAddedAt());
-            return profile;
-        }
-        
-        // 检查是否是当前用户
-        UserProfile currentUser = getUserProfile();
-        if (currentUser.getUserId().equals(userId)) {
-            return currentUser;
-        }
-        
-        return null;
-    }
-
-    @Override
-    public boolean addFriend(String userId) {
-        try {
-            // 检查是否已经是好友
-            if (friendsMap.containsKey(userId)) {
-                return false;
-            }
-            
-            // 创建好友对象（简化实现）
-            Friend friend = new Friend();
-            friend.setFriendId(userId);
-            friend.setDisplayName("好友_" + userId.substring(0, Math.min(8, userId.length())));
-            friend.setPublicKey("public_key_" + userId);
-            friend.setAddedAt(System.currentTimeMillis());
-            friend.setBlocked(false);
-            
-            friendsMap.put(userId, friend);
-            Log.d(TAG, "Friend added: " + userId);
-            return true;
-        } catch (Exception e) {
-            Log.e(TAG, "Failed to add friend", e);
-            return false;
-        }
-    }
-
-    @Override
-    public List<Friend> getFriendList() {
-        return new ArrayList<>(friendsMap.values());
-    }
-
-    @Override
-    public boolean removeFriend(String friendId) {
-        try {
-            Friend removed = friendsMap.remove(friendId);
-            if (removed != null) {
-                Log.d(TAG, "Friend removed: " + friendId);
-                return true;
-            }
-            return false;
-        } catch (Exception e) {
-            Log.e(TAG, "Failed to remove friend", e);
-            return false;
-        }
-    }
-
-    @Override
-    public String generateUserQRCode() {
-        try {
-            UserProfile profile = getUserProfile();
-            // 返回 JSON 格式的二维码内容
-            return "{\"type\":\"user\",\"userId\":\"" + profile.getUserId() + 
-                   "\",\"displayName\":\"" + profile.getDisplayName() + 
-                   "\",\"publicKey\":\"" + profile.getPublicKey() + "\"}";
-        } catch (Exception e) {
-            Log.e(TAG, "Failed to generate QR code", e);
-            return null;
-        }
+        return userId;
     }
 
     // ========== 新增：分享管理接口实现 ==========
@@ -759,7 +647,7 @@ public class BackendServiceImpl implements BackendService {
             PasswordShare share = new PasswordShare();
             share.setShareId(shareId);
             share.setPasswordId(passwordId);
-            share.setFromUserId(getUserProfile().getUserId());
+            share.setFromUserId(getCurrentUserId());
             share.setToUserId(toUserId);
             share.setCreatedAt(System.currentTimeMillis());
             
@@ -834,7 +722,7 @@ public class BackendServiceImpl implements BackendService {
             }
             
             // 验证所有权
-            if (!share.getFromUserId().equals(getUserProfile().getUserId())) {
+            if (!share.getFromUserId().equals(getCurrentUserId())) {
                 Log.e(TAG, "Not authorized to revoke share: " + shareId);
                 return false;
             }
@@ -858,7 +746,7 @@ public class BackendServiceImpl implements BackendService {
     @Override
     public List<PasswordShare> getMyShares() {
         List<PasswordShare> myShares = new ArrayList<>();
-        String currentUserId = getUserProfile().getUserId();
+        String currentUserId = getCurrentUserId();
         
         for (PasswordShare share : sharesMap.values()) {
             if (currentUserId.equals(share.getFromUserId())) {
@@ -872,7 +760,7 @@ public class BackendServiceImpl implements BackendService {
     @Override
     public List<PasswordShare> getReceivedShares() {
         List<PasswordShare> receivedShares = new ArrayList<>();
-        String currentUserId = getUserProfile().getUserId();
+        String currentUserId = getCurrentUserId();
         
         for (PasswordShare share : sharesMap.values()) {
             if (currentUserId.equals(share.getToUserId()) || share.getToUserId() == null) {

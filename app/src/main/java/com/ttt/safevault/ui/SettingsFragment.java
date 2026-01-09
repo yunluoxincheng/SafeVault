@@ -47,10 +47,6 @@ public class SettingsFragment extends BaseFragment {
         // 自动填充服务
         binding.cardAutofillService.setOnClickListener(v -> openAutofillSettings());
 
-        // 好友管理
-        binding.cardFriendManagement.setOnClickListener(v ->
-                Navigation.findNavController(v).navigate(R.id.action_settings_to_friendList));
-
         // 分享设置
         binding.cardShareSettings.setOnClickListener(v ->
                 Navigation.findNavController(v).navigate(R.id.action_settings_to_shareSettings));

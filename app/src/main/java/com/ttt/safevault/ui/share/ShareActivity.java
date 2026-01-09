@@ -14,7 +14,6 @@ import com.google.android.material.chip.Chip;
 import com.ttt.safevault.R;
 import com.ttt.safevault.ServiceLocator;
 import com.ttt.safevault.databinding.ActivityShareBinding;
-import com.ttt.safevault.model.Friend;
 import com.ttt.safevault.model.SharePermission;
 import com.ttt.safevault.viewmodel.ShareViewModel;
 import com.ttt.safevault.viewmodel.ViewModelFactory;
@@ -30,9 +29,7 @@ public class ShareActivity extends AppCompatActivity {
     private ActivityShareBinding binding;
     private ShareViewModel viewModel;
     private int passwordId;
-    private List<Friend> friendList = new ArrayList<>();
-    private String selectedFriendId = null;
-    
+
     // 传输方式
     private enum TransmissionMethod {
         QR_CODE, BLUETOOTH, NFC, CLOUD
@@ -75,9 +72,8 @@ public class ShareActivity extends AppCompatActivity {
         );
         viewModel = new ViewModelProvider(this, factory).get(ShareViewModel.class);
         
-        // 加载密码信息和好友列表
+        // 加载密码信息
         viewModel.loadPasswordItem(passwordId);
-        viewModel.loadFriendList();
     }
 
     private void setupToolbar() {
@@ -97,15 +93,6 @@ public class ShareActivity extends AppCompatActivity {
         );
         binding.autoCompleteExpireTime.setAdapter(expireAdapter);
         binding.autoCompleteExpireTime.setText(expireTimeOptions[1], false); // 默认1天
-
-        // 分享方式切换
-        binding.radioGroupShareMode.setOnCheckedChangeListener((group, checkedId) -> {
-            if (checkedId == R.id.radioShareToFriend) {
-                binding.cardFriendSelection.setVisibility(View.VISIBLE);
-            } else {
-                binding.cardFriendSelection.setVisibility(View.GONE);
-            }
-        });
 
         // 按钮点击事件
         binding.btnCancel.setOnClickListener(v -> finish());
@@ -136,14 +123,6 @@ public class ShareActivity extends AppCompatActivity {
     }
 
     private void observeViewModel() {
-        // 观察好友列表
-        viewModel.friendList.observe(this, friends -> {
-            if (friends != null && !friends.isEmpty()) {
-                friendList = friends;
-                setupFriendSpinner();
-            }
-        });
-
         // 观察加载状态
         viewModel.isLoading.observe(this, isLoading -> {
             binding.progressBar.setVisibility(isLoading ? View.VISIBLE : View.GONE);
@@ -187,21 +166,6 @@ public class ShareActivity extends AppCompatActivity {
         });
     }
 
-    private void setupFriendSpinner() {
-        List<String> friendNames = new ArrayList<>();
-        for (Friend friend : friendList) {
-            friendNames.add(friend.getDisplayName());
-        }
-
-        ArrayAdapter<String> adapter = new ArrayAdapter<>(
-            this,
-            android.R.layout.simple_spinner_item,
-            friendNames
-        );
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        binding.spinnerFriends.setAdapter(adapter);
-    }
-
     private void createShare() {
         // 获取选择的过期时间
         String selectedExpireTime = binding.autoCompleteExpireTime.getText().toString();
@@ -213,25 +177,8 @@ public class ShareActivity extends AppCompatActivity {
         permission.setCanSave(binding.switchAllowSave.isChecked());
         permission.setRevocable(binding.switchRevocable.isChecked());
 
-        // 根据分享方式创建分享
-        if (binding.radioShareToFriend.isChecked()) {
-            // 分享给好友
-            int selectedPosition = binding.spinnerFriends.getSelectedItemPosition();
-            if (selectedPosition >= 0 && selectedPosition < friendList.size()) {
-                Friend selectedFriend = friendList.get(selectedPosition);
-                viewModel.createShareToFriend(
-                    passwordId,
-                    selectedFriend.getFriendId(),
-                    expireInMinutes,
-                    permission
-                );
-            } else {
-                Toast.makeText(this, "请选择好友", Toast.LENGTH_SHORT).show();
-            }
-        } else {
-            // 直接分享（使用离线分享的实现）
-            viewModel.createOfflineShare(passwordId, expireInMinutes, permission);
-        }
+        // 创建离线分享（使用二维码）
+        viewModel.createOfflineShare(passwordId, expireInMinutes, permission);
     }
 
     private int getExpireTimeValue(String expireTimeText) {

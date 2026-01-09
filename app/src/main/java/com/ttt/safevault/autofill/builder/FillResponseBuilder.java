@@ -93,10 +93,18 @@ public class FillResponseBuilder {
 
         // 如果没有匹配的凭据
         if (credentials == null || credentials.isEmpty()) {
-            logDebug("没有匹配的凭据，提供打开应用选项");
+            logDebug("没有匹配的凭据，仍然提供保存选项");
             
-            // 可以添加一个"打开SafeVault"的选项
-            // 这里暂时返回null，让系统显示默认提示
+            // 即使没有匹配的凭据，也要添加SaveInfo以支持保存新凭据
+            SaveInfo saveInfo = createSaveInfo(request);
+            if (saveInfo != null) {
+                responseBuilder.setSaveInfo(saveInfo);
+                logDebug("已添加SaveInfo，用户可以保存新凭据");
+                return responseBuilder.build();
+            }
+            
+            // 如果无法创建SaveInfo（没有密码字段），返回null
+            logDebug("无法创建SaveInfo，返回null");
             return null;
         }
 

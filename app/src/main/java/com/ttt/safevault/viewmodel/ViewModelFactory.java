@@ -55,9 +55,6 @@ public class ViewModelFactory extends ViewModelProvider.AndroidViewModelFactory 
         if (modelClass.isAssignableFrom(ReceiveShareViewModel.class)) {
             return (T) new ReceiveShareViewModel(application, backendService);
         }
-        if (modelClass.isAssignableFrom(FriendViewModel.class)) {
-            return (T) new FriendViewModel(application, backendService);
-        }
         if (modelClass.isAssignableFrom(ShareHistoryViewModel.class)) {
             return (T) new ShareHistoryViewModel(application, backendService);
         }

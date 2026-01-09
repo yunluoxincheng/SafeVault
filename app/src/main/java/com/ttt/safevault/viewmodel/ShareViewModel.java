@@ -8,7 +8,6 @@ import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
 
 import com.ttt.safevault.model.BackendService;
-import com.ttt.safevault.model.Friend;
 import com.ttt.safevault.model.PasswordItem;
 import com.ttt.safevault.model.SharePermission;
 
@@ -26,7 +25,6 @@ public class ShareViewModel extends AndroidViewModel {
     private final ExecutorService executor;
 
     // LiveData用于UI状态管理
-    private final MutableLiveData<List<Friend>> _friendList = new MutableLiveData<>();
     private final MutableLiveData<Boolean> _isLoading = new MutableLiveData<>(false);
     private final MutableLiveData<String> _errorMessage = new MutableLiveData<>();
     private final MutableLiveData<String> _shareResult = new MutableLiveData<>();
@@ -35,7 +33,6 @@ public class ShareViewModel extends AndroidViewModel {
     private final MutableLiveData<String> _sharePassword = new MutableLiveData<>();
     private final MutableLiveData<Boolean> _isOfflineShare = new MutableLiveData<>(false);
 
-    public LiveData<List<Friend>> friendList = _friendList;
     public LiveData<Boolean> isLoading = _isLoading;
     public LiveData<String> errorMessage = _errorMessage;
     public LiveData<String> shareResult = _shareResult;
@@ -51,25 +48,6 @@ public class ShareViewModel extends AndroidViewModel {
     }
 
     /**
-     * 加载好友列表
-     */
-    public void loadFriendList() {
-        _isLoading.setValue(true);
-        _errorMessage.setValue(null);
-
-        executor.execute(() -> {
-            try {
-                List<Friend> friends = backendService.getFriendList();
-                _friendList.postValue(friends);
-            } catch (Exception e) {
-                _errorMessage.postValue("加载好友列表失败: " + e.getMessage());
-            } finally {
-                _isLoading.postValue(false);
-            }
-        });
-    }
-
-    /**
      * 加载要分享的密码条目
      */
     public void loadPasswordItem(int passwordId) {
@@ -82,39 +60,6 @@ public class ShareViewModel extends AndroidViewModel {
                 _passwordItem.postValue(item);
             } catch (Exception e) {
                 _errorMessage.postValue("加载密码失败: " + e.getMessage());
-            } finally {
-                _isLoading.postValue(false);
-            }
-        });
-    }
-
-    /**
-     * 创建分享给好友
-     * @param passwordId 密码ID
-     * @param friendId 好友ID
-     * @param expireInMinutes 过期时间（分钟）
-     * @param permission 分享权限
-     */
-    public void createShareToFriend(int passwordId, String friendId, 
-                                   int expireInMinutes, SharePermission permission) {
-        _isLoading.setValue(true);
-        _errorMessage.setValue(null);
-        _shareSuccess.setValue(false);
-
-        executor.execute(() -> {
-            try {
-                String shareId = backendService.createPasswordShare(
-                    passwordId, friendId, expireInMinutes, permission
-                );
-                
-                if (shareId != null && !shareId.isEmpty()) {
-                    _shareResult.postValue(shareId);
-                    _shareSuccess.postValue(true);
-                } else {
-                    _errorMessage.postValue("创建分享失败");
-                }
-            } catch (Exception e) {
-                _errorMessage.postValue("创建分享失败: " + e.getMessage());
             } finally {
                 _isLoading.postValue(false);
             }
