@@ -47,7 +47,12 @@
         <item name="android:windowBackground">?attr/colorSurface</item>
     </style>
 
-    <style name="Theme.SafeVault" parent="Base.Theme.SafeVault" />
+    <style name="Theme.SafeVault" parent="Base.Theme.SafeVault">
+        <!-- Splash Screen 配置 -->
+        <item name="android:windowSplashScreenAnimatedIcon">@mipmap/ic_launcher_foreground</item>
+        <item name="android:windowSplashScreenBackground">?attr/colorSurface</item>
+        <item name="android:windowSplashScreenAnimationDuration">1000</item>
+    </style>
 
     <!-- 无ActionBar主题（已在 Base.Theme.SafeVault 中设置） -->
     <style name="Theme.SafeVault.NoActionBar" parent="Theme.SafeVault" />
@@ -65,5 +70,15 @@
     <!-- 圆形ImageView样式 -->
     <style name="CircleImageView">
         <item name="cornerSize">50%</item>
+    </style>
+
+    <!-- 优化的按钮样式 - 确保良好的对比度 -->
+    <style name="Widget.Material3.Button.OutlinedButton.HighContrast" parent="Widget.Material3.Button.OutlinedButton">
+        <item name="strokeColor">@color/md_theme_light_primary</item>
+        <item name="android:textColor">@color/md_theme_light_primary</item>
+    </style>
+
+    <style name="Widget.Material3.Button.TextButton.HighContrast" parent="Widget.Material3.Button.TextButton">
+        <item name="android:textColor">@color/md_theme_light_primary</item>
     </style>
 </resources>

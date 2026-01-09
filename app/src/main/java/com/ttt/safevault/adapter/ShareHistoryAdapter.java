@@ -10,6 +10,7 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.material.button.MaterialButton;
 import com.ttt.safevault.R;
+import com.ttt.safevault.dto.response.ReceivedShareResponse;
 import com.ttt.safevault.model.PasswordShare;
 import com.ttt.safevault.model.SharePermission;
 import com.ttt.safevault.model.ShareStatus;
@@ -22,10 +23,13 @@ import java.util.Locale;
 
 /**
  * 分享历史适配器
+ * 支持离线分享和云端分享
  */
 public class ShareHistoryAdapter extends RecyclerView.Adapter<ShareHistoryAdapter.ViewHolder> {
 
     private List<PasswordShare> shareList = new ArrayList<>();
+    private List<ReceivedShareResponse> cloudShareList = new ArrayList<>();
+    private boolean isCloudMode = false;
     private OnShareActionListener listener;
     private boolean isMyShares; // true表示我的分享，false表示接收的分享
 
@@ -44,6 +48,13 @@ public class ShareHistoryAdapter extends RecyclerView.Adapter<ShareHistoryAdapte
 
     public void setShareList(List<PasswordShare> shares) {
         this.shareList = shares != null ? shares : new ArrayList<>();
+        this.isCloudMode = false;
+        notifyDataSetChanged();
+    }
+
+    public void setCloudShareList(List<ReceivedShareResponse> shares) {
+        this.cloudShareList = shares != null ? shares : new ArrayList<>();
+        this.isCloudMode = true;
         notifyDataSetChanged();
     }
 
@@ -57,13 +68,18 @@ public class ShareHistoryAdapter extends RecyclerView.Adapter<ShareHistoryAdapte
 
     @Override
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
-        PasswordShare share = shareList.get(position);
-        holder.bind(share);
+        if (isCloudMode) {
+            ReceivedShareResponse cloudShare = cloudShareList.get(position);
+            holder.bindCloudShare(cloudShare);
+        } else {
+            PasswordShare share = shareList.get(position);
+            holder.bind(share);
+        }
     }
 
     @Override
     public int getItemCount() {
-        return shareList.size();
+        return isCloudMode ? cloudShareList.size() : shareList.size();
     }
 
     class ViewHolder extends RecyclerView.ViewHolder {
@@ -127,6 +143,75 @@ public class ShareHistoryAdapter extends RecyclerView.Adapter<ShareHistoryAdapte
 
             // 只有活跃状态的分享才能撤销
             btnRevoke.setEnabled(share.getStatus() == ShareStatus.ACTIVE);
+            
+            // 接收的分享不显示撤销按钮
+            if (!isMyShares) {
+                btnRevoke.setVisibility(View.GONE);
+            }
+        }
+
+        public void bindCloudShare(ReceivedShareResponse cloudShare) {
+            // 标题
+            textTitle.setText(cloudShare.getTitle() != null ? cloudShare.getTitle() : "密码");
+
+            // 状态
+            String status = cloudShare.getStatus();
+            if ("ACTIVE".equals(status)) {
+                textStatus.setText("活跃");
+                textStatus.setBackgroundResource(R.drawable.bg_status_active);
+                textStatus.setTextColor(0xFF2E7D32);
+            } else if ("EXPIRED".equals(status)) {
+                textStatus.setText("已过期");
+                textStatus.setBackgroundResource(android.R.color.transparent);
+                textStatus.setTextColor(0xFF757575);
+            } else if ("REVOKED".equals(status)) {
+                textStatus.setText("已撤销");
+                textStatus.setBackgroundResource(android.R.color.transparent);
+                textStatus.setTextColor(0xFFD32F2F);
+            }
+
+            // 用户信息
+            if (isMyShares) {
+                textUser.setText("分享给: " + (cloudShare.getToUserDisplayName() != null ? 
+                    cloudShare.getToUserDisplayName() : cloudShare.getToUserId()));
+            } else {
+                textUser.setText("来自: " + (cloudShare.getFromUserDisplayName() != null ? 
+                    cloudShare.getFromUserDisplayName() : cloudShare.getFromUserId()));
+            }
+
+            // 权限信息
+            updatePermission(cloudShare.getPermission());
+
+            // 创建时间
+            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault());
+            if (cloudShare.getCreatedAt() > 0) {
+                textTime.setText(sdf.format(new Date(cloudShare.getCreatedAt())));
+            }
+
+            // 过期时间
+            if (cloudShare.getExpireTime() != null) {
+                updateExpireTime(cloudShare.getExpireTime());
+            }
+
+            // 按钮点击事件 - 使用ShareId作为PasswordShare的ID
+            btnView.setOnClickListener(v -> {
+                if (listener != null) {
+                    PasswordShare tempShare = new PasswordShare();
+                    tempShare.setShareId(cloudShare.getShareId());
+                    listener.onViewShare(tempShare);
+                }
+            });
+
+            btnRevoke.setOnClickListener(v -> {
+                if (listener != null) {
+                    PasswordShare tempShare = new PasswordShare();
+                    tempShare.setShareId(cloudShare.getShareId());
+                    listener.onRevokeShare(tempShare);
+                }
+            });
+
+            // 只有活跃状态的分享才能撤销
+            btnRevoke.setEnabled("ACTIVE".equals(status));
             
             // 接收的分享不显示撤销按钮
             if (!isMyShares) {

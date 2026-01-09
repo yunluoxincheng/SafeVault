@@ -26,6 +26,7 @@ public class ReceiveShareViewModel extends AndroidViewModel {
     // LiveData用于UI状态管理
     private final MutableLiveData<PasswordItem> _sharedPassword = new MutableLiveData<>();
     private final MutableLiveData<PasswordShare> _shareDetails = new MutableLiveData<>();
+    private final MutableLiveData<com.ttt.safevault.dto.response.ReceivedShareResponse> _cloudShareDetails = new MutableLiveData<>();
     private final MutableLiveData<Boolean> _isLoading = new MutableLiveData<>(false);
     private final MutableLiveData<String> _errorMessage = new MutableLiveData<>();
     private final MutableLiveData<Boolean> _saveSuccess = new MutableLiveData<>(false);
@@ -33,6 +34,7 @@ public class ReceiveShareViewModel extends AndroidViewModel {
 
     public LiveData<PasswordItem> sharedPassword = _sharedPassword;
     public LiveData<PasswordShare> shareDetails = _shareDetails;
+    public LiveData<com.ttt.safevault.dto.response.ReceivedShareResponse> cloudShareDetails = _cloudShareDetails;
     public LiveData<Boolean> isLoading = _isLoading;
     public LiveData<String> errorMessage = _errorMessage;
     public LiveData<Boolean> saveSuccess = _saveSuccess;
@@ -114,6 +116,32 @@ public class ReceiveShareViewModel extends AndroidViewModel {
     }
 
     /**
+     * 接收云端分享
+     * @param shareId 分享ID
+     */
+    public void receiveCloudShare(String shareId) {
+        _isLoading.setValue(true);
+        _errorMessage.setValue(null);
+
+        executor.execute(() -> {
+            try {
+                com.ttt.safevault.dto.response.ReceivedShareResponse cloudShare = 
+                    backendService.receiveCloudShare(shareId);
+                
+                if (cloudShare != null) {
+                    _cloudShareDetails.postValue(cloudShare);
+                } else {
+                    _errorMessage.postValue("无法接收云端分享：数据无效");
+                }
+            } catch (Exception e) {
+                _errorMessage.postValue("接收云端分享失败: " + e.getMessage());
+            } finally {
+                _isLoading.postValue(false);
+            }
+        });
+    }
+
+    /**
      * 保存分享的密码到本地
      * @param shareId 分享ID
      */
@@ -149,6 +177,27 @@ public class ReceiveShareViewModel extends AndroidViewModel {
                 }
             } catch (Exception e) {
                 _errorMessage.postValue("保存失败: " + e.getMessage());
+            } finally {
+                _isLoading.postValue(false);
+            }
+        });
+    }
+
+    /**
+     * 保存云端分享到本地
+     * @param shareId 分享ID
+     */
+    public void saveCloudShare(String shareId) {
+        _isLoading.setValue(true);
+        _errorMessage.setValue(null);
+        _saveSuccess.setValue(false);
+
+        executor.execute(() -> {
+            try {
+                backendService.saveCloudShare(shareId);
+                _saveSuccess.postValue(true);
+            } catch (Exception e) {
+                _errorMessage.postValue("保存云端分享失败: " + e.getMessage());
             } finally {
                 _isLoading.postValue(false);
             }

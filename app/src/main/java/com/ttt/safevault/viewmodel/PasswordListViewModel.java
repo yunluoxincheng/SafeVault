@@ -189,10 +189,35 @@ public class PasswordListViewModel extends AndroidViewModel {
     }
 
     /**
-     * 刷新数据
+     * 刷新数据（显示加载动画）
      */
     public void refresh() {
         loadPasswordItems();
+    }
+
+    /**
+     * 静默刷新数据（不显示加载动画，用于从其他页面返回时）
+     */
+    public void refreshSilently() {
+        _errorMessage.setValue(null);
+
+        executor.execute(() -> {
+            try {
+                List<PasswordItem> items = backendService.getAllItems();
+                allItems = items;
+
+                // 应用当前搜索过滤
+                String currentQuery = _searchQuery.getValue();
+                if (currentQuery != null && !currentQuery.trim().isEmpty()) {
+                    items = filterItems(items, currentQuery);
+                }
+
+                _passwordItems.postValue(items);
+                _isEmpty.postValue(items.isEmpty());
+            } catch (Exception e) {
+                _errorMessage.postValue("刷新失败: " + e.getMessage());
+            }
+        });
     }
 
     /**

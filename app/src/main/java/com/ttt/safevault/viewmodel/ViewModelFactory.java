@@ -58,6 +58,12 @@ public class ViewModelFactory extends ViewModelProvider.AndroidViewModelFactory 
         if (modelClass.isAssignableFrom(ShareHistoryViewModel.class)) {
             return (T) new ShareHistoryViewModel(application, backendService);
         }
+        if (modelClass.isAssignableFrom(AuthViewModel.class)) {
+            return (T) new AuthViewModel(application);
+        }
+        if (modelClass.isAssignableFrom(NearbyUsersViewModel.class)) {
+            return (T) new NearbyUsersViewModel(application);
+        }
         throw new IllegalArgumentException("Unknown ViewModel class: " + modelClass.getName());
     }
 }

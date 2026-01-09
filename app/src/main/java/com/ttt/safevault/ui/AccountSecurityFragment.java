@@ -2,6 +2,9 @@ package com.ttt.safevault.ui;
 
 import android.app.AlertDialog;
 import android.os.Bundle;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
+import android.text.InputType;
+import android.widget.EditText;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -60,24 +63,41 @@ public class AccountSecurityFragment extends BaseFragment {
         // 自动锁定选项
         binding.cardAutoLock.setOnClickListener(v -> showAutoLockDialog());
 
-        // 生物识别开关
-        binding.switchBiometric.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            if (isChecked) {
+        // 生物识别开关 - 使用点击监听器而不是状态改变监听器
+        // 这样只有用户主动点击时才会触发，避免初始化时触发
+        binding.switchBiometric.setOnClickListener(v -> {
+            boolean newState = binding.switchBiometric.isChecked();
+
+            if (newState) {
+                // 用户想要开启生物识别（点击后状态变为true）
                 // 检查设备是否支持生物识别
                 if (com.ttt.safevault.security.BiometricAuthHelper.isBiometricSupported(requireContext())) {
-                    // 启用生物识别前，确保用户已经设置了主密码或其他认证方式
-                    securityConfig.setBiometricEnabled(true);
-                    Toast.makeText(requireContext(), "生物识别已启用", Toast.LENGTH_SHORT).show();
+                    // 先将开关恢复为关闭状态，等待验证成功后再开启
+                    binding.switchBiometric.setChecked(false);
+
+                    // 启用生物识别前要求用户验证身份
+                    // 直接触发生物识别验证
+                    showBiometricOnlyAuthentication(() -> {
+                        // 验证成功，开启生物识别
+                        binding.switchBiometric.setChecked(true);
+                        securityConfig.setBiometricEnabled(true);
+                        Toast.makeText(requireContext(), "生物识别已启用", Toast.LENGTH_SHORT).show();
+                    }, () -> {
+                        // 验证失败，保持开关关闭状态
+                        binding.switchBiometric.setChecked(false);
+                    });
                 } else {
                     // 设备不支持生物识别，显示提示并恢复开关状态
-                    ((MaterialSwitch) buttonView).setChecked(false);
-                    new AlertDialog.Builder(requireContext())
+                    binding.switchBiometric.setChecked(false);
+                    new MaterialAlertDialogBuilder(requireContext())
                             .setTitle("生物识别不可用")
                             .setMessage("您的设备不支持生物识别认证或未设置生物识别信息")
                             .setPositiveButton("确定", null)
                             .show();
                 }
             } else {
+                // 用户想要关闭生物识别（点击后状态变为false）- 直接关闭，不需要验证
+                binding.switchBiometric.setChecked(false);
                 securityConfig.setBiometricEnabled(false);
                 Toast.makeText(requireContext(), "生物识别已禁用", Toast.LENGTH_SHORT).show();
             }
@@ -118,7 +138,7 @@ public class AccountSecurityFragment extends BaseFragment {
 
         int currentSelection = securityConfig.getAutoLockMode().ordinal();
 
-        new AlertDialog.Builder(requireContext())
+        new MaterialAlertDialogBuilder(requireContext())
                 .setTitle(R.string.auto_lock)
                 .setSingleChoiceItems(options, currentSelection, (dialog, which) -> {
                     SecurityConfig.AutoLockMode selectedMode = modes[which];
@@ -173,6 +193,134 @@ public class AccountSecurityFragment extends BaseFragment {
                     requireActivity().finish();
                 })
                 .setNegativeButton(R.string.cancel, null)
+                .show();
+    }
+
+    /**
+     * 只使用生物识别验证身份（用于启用生物识别功能）
+     * @param onSuccess 验证成功回调
+     * @param onFailure 验证失败回调
+     */
+    private void showBiometricOnlyAuthentication(Runnable onSuccess, Runnable onFailure) {
+        com.ttt.safevault.security.BiometricAuthHelper biometricHelper =
+            new com.ttt.safevault.security.BiometricAuthHelper(
+                (androidx.fragment.app.FragmentActivity) requireActivity());
+        biometricHelper.authenticate(new com.ttt.safevault.security.BiometricAuthHelper.BiometricAuthCallback() {
+            @Override
+            public void onSuccess() {
+                if (onSuccess != null) {
+                    requireActivity().runOnUiThread(onSuccess);
+                }
+            }
+
+            @Override
+            public void onFailure(String error) {
+                if (onFailure != null) {
+                    requireActivity().runOnUiThread(() -> {
+                        Toast.makeText(requireContext(), "生物识别验证失败: " + error, Toast.LENGTH_SHORT).show();
+                        onFailure.run();
+                    });
+                }
+            }
+
+            @Override
+            public void onCancel() {
+                if (onFailure != null) {
+                    requireActivity().runOnUiThread(onFailure);
+                }
+            }
+        });
+    }
+
+    /**
+     * 提示用户验证身份
+     * @param onSuccess 验证成功回调
+     * @param onFailure 验证失败回调
+     */
+    private void promptUserAuthentication(Runnable onSuccess, Runnable onFailure) {
+        // 如果已经启用了生物识别，优先使用生物识别验证
+        if (securityConfig.isBiometricEnabled()) {
+            com.ttt.safevault.security.BiometricAuthHelper biometricHelper =
+                new com.ttt.safevault.security.BiometricAuthHelper(
+                    (androidx.fragment.app.FragmentActivity) requireActivity());
+            biometricHelper.authenticate(new com.ttt.safevault.security.BiometricAuthHelper.BiometricAuthCallback() {
+                @Override
+                public void onSuccess() {
+                    if (onSuccess != null) {
+                        requireActivity().runOnUiThread(onSuccess);
+                    }
+                }
+
+                @Override
+                public void onFailure(String error) {
+                    // 生物识别失败，回退到主密码验证
+                    requireActivity().runOnUiThread(() -> showPasswordAuthenticationDialog(onSuccess, onFailure));
+                }
+
+                @Override
+                public void onCancel() {
+                    if (onFailure != null) {
+                        requireActivity().runOnUiThread(onFailure);
+                    }
+                }
+            });
+        } else {
+            // 未启用生物识别，使用主密码验证
+            showPasswordAuthenticationDialog(onSuccess, onFailure);
+        }
+    }
+
+    /**
+     * 显示主密码验证对话框
+     * @param onSuccess 验证成功回调
+     * @param onFailure 验证失败回调
+     */
+    private void showPasswordAuthenticationDialog(Runnable onSuccess, Runnable onFailure) {
+        EditText passwordInput = new EditText(requireContext());
+        passwordInput.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        passwordInput.setHint("请输入主密码以验证身份");
+
+        new MaterialAlertDialogBuilder(requireContext())
+                .setTitle("验证身份")
+                .setMessage("为了安全起见，请验证您的身份以启用生物识别")
+                .setView(passwordInput)
+                .setPositiveButton("验证", (dialog, which) -> {
+                    String password = passwordInput.getText().toString();
+                    if (password.isEmpty()) {
+                        Toast.makeText(requireContext(), "密码不能为空", Toast.LENGTH_SHORT).show();
+                        if (onFailure != null) {
+                            onFailure.run();
+                        }
+                        return;
+                    }
+
+                    // 调用后端服务验证密码
+                    com.ttt.safevault.model.BackendService backendService =
+                        com.ttt.safevault.ServiceLocator.getInstance().getBackendService();
+                    try {
+                        boolean authenticated = backendService.unlock(password);
+                        if (authenticated) {
+                            if (onSuccess != null) {
+                                onSuccess.run();
+                            }
+                        } else {
+                            Toast.makeText(requireContext(), "密码错误，验证失败", Toast.LENGTH_SHORT).show();
+                            if (onFailure != null) {
+                                onFailure.run();
+                            }
+                        }
+                    } catch (Exception e) {
+                        Toast.makeText(requireContext(), "验证时发生错误: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                        if (onFailure != null) {
+                            onFailure.run();
+                        }
+                    }
+                })
+                .setNegativeButton("取消", (dialog, which) -> {
+                    if (onFailure != null) {
+                        onFailure.run();
+                    }
+                })
                 .show();
     }
 

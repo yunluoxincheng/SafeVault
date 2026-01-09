@@ -59,6 +59,9 @@ dependencies {
     // Biometric authentication
     implementation 'androidx.biometric:biometric:1.1.0'
 
+    // Splash Screen API
+    implementation 'androidx.core:core-splashscreen:1.0.1'
+
     // Room for local data access (只访问Repository，不操作加密层)
     implementation 'androidx.room:room-runtime:2.5.0'
     annotationProcessor 'androidx.room:room-compiler:2.5.0'
@@ -66,6 +69,23 @@ dependencies {
     // ZXing for QR code generation and scanning
     implementation 'com.google.zxing:core:3.5.2'
     implementation 'com.journeyapps:zxing-android-embedded:4.3.0'
+
+    // Network libraries for backend API integration
+    implementation 'com.squareup.retrofit2:retrofit:2.9.0'
+    implementation 'com.squareup.retrofit2:converter-gson:2.9.0'
+    implementation 'com.squareup.retrofit2:adapter-rxjava3:2.9.0'
+    implementation 'com.squareup.okhttp3:okhttp:4.11.0'
+    implementation 'com.squareup.okhttp3:logging-interceptor:4.11.0'
+    
+    // RxJava for reactive programming
+    implementation 'io.reactivex.rxjava3:rxjava:3.1.5'
+    implementation 'io.reactivex.rxjava3:rxandroid:3.0.2'
+    
+    // Gson for JSON parsing
+    implementation 'com.google.code.gson:gson:2.10.1'
+    
+    // Location services for nearby discovery
+    implementation 'com.google.android.gms:play-services-location:21.0.1'
 
     testImplementation libs.junit
     androidTestImplementation libs.ext.junit

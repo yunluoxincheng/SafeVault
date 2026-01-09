@@ -101,3 +101,27 @@ TBD - created by archiving change enhance-frontend-ui. Update Purpose after arch
 **Then** 被删除的项目 SHALL 恢复
 **And** 列表 SHALL 更新
 
+### Requirement: 生物识别启用前身份验证
+用户启用生物识别解锁功能前，系统 SHALL 要求用户验证身份以防止未授权访问。
+
+#### Scenario: 首次启用生物识别前验证身份
+- **GIVEN** 用户在账户安全设置页面且生物识别功能未启用
+- **WHEN** 用户点击生物识别开关
+- **THEN** 系统 SHALL 要求用户验证身份
+- **AND** 系统 SHALL 显示主密码输入对话框或生物识别验证提示
+- **AND** 仅在验证成功后启用生物识别功能
+- **AND** 验证失败时 SHALL 显示错误提示并保持开关关闭状态
+
+#### Scenario: 已启用生物识别时调整设置
+- **GIVEN** 用户已启用生物识别功能
+- **WHEN** 用户调整生物识别相关设置
+- **THEN** 系统 SHALL 允许直接操作（无需重复验证）
+- **AND** 用户关闭生物识别功能 SHALL 直接生效
+
+#### Scenario: 生物识别验证失败处理
+- **GIVEN** 用户尝试启用生物识别功能
+- **WHEN** 身份验证失败（密码错误或生物识别失败）
+- **THEN** 系统 SHALL 显示验证失败提示
+- **AND** 系统 SHALL 保持生物识别开关为关闭状态
+- **AND** 系统 SHALL 允许用户重新尝试验证
+

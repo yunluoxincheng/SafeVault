@@ -23,7 +23,6 @@ import androidx.lifecycle.Lifecycle;
 import androidx.viewpager2.adapter.FragmentStateAdapter;
 import androidx.viewpager2.widget.ViewPager2;
 
-import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.tabs.TabLayout;
 import com.google.android.material.tabs.TabLayoutMediator;
 import com.ttt.safevault.R;
@@ -36,7 +35,6 @@ public class ShareHistoryFragment extends Fragment {
 
     private ViewPager2 viewPager;
     private TabLayout tabLayout;
-    private MaterialToolbar toolbar;
 
     private final ActivityResultLauncher<String> requestCameraPermission =
         registerForActivityResult(new ActivityResultContracts.RequestPermission(), granted -> {
@@ -64,12 +62,8 @@ public class ShareHistoryFragment extends Fragment {
     }
 
     private void initViews(View view) {
-        toolbar = view.findViewById(R.id.toolbar);
         tabLayout = view.findViewById(R.id.tab_layout);
         viewPager = view.findViewById(R.id.view_pager);
-
-        // 设置工具栏
-        toolbar.setNavigationOnClickListener(v -> requireActivity().onBackPressed());
     }
 
     private void setupMenu() {

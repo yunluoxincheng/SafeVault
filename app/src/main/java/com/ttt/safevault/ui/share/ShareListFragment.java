@@ -14,15 +14,22 @@ import androidx.recyclerview.widget.RecyclerView;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
+import com.google.android.material.tabs.TabLayout;
 import com.ttt.safevault.R;
 import com.ttt.safevault.adapter.ShareHistoryAdapter;
+import com.ttt.safevault.dto.response.ReceivedShareResponse;
 import com.ttt.safevault.model.PasswordShare;
+import com.ttt.safevault.network.TokenManager;
 import com.ttt.safevault.viewmodel.ShareHistoryViewModel;
 import com.ttt.safevault.viewmodel.ViewModelFactory;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * 分享列表Fragment
  * 用于显示我的分享或接收的分享
+ * 支持离线分享和云端分享
  */
 public class ShareListFragment extends Fragment {
 
@@ -31,8 +38,11 @@ public class ShareListFragment extends Fragment {
     private ShareHistoryViewModel viewModel;
     private ShareHistoryAdapter adapter;
     private SwipeRefreshLayout swipeRefresh;
+    private TabLayout tabModeLayout;
     private View emptyView;
     private boolean isMyShares;
+    private boolean showCloudShares = false;  // 是否显示云端分享
+    private TokenManager tokenManager;
 
     public static ShareListFragment newInstance(boolean isMyShares) {
         ShareListFragment fragment = new ShareListFragment();
@@ -48,6 +58,7 @@ public class ShareListFragment extends Fragment {
         if (getArguments() != null) {
             isMyShares = getArguments().getBoolean(ARG_IS_MY_SHARES, true);
         }
+        tokenManager = TokenManager.getInstance(requireContext());
     }
 
     @Nullable
@@ -66,17 +77,38 @@ public class ShareListFragment extends Fragment {
         setupRecyclerView();
         setupObservers();
 
-        // 加载数据
-        loadData();
+        // 静默加载数据（首次进入不显示加载动画）
+        loadDataSilently();
     }
 
     private void initViews(View view) {
         RecyclerView recyclerView = view.findViewById(R.id.recycler_view);
         swipeRefresh = view.findViewById(R.id.swipe_refresh);
+        tabModeLayout = view.findViewById(R.id.tab_mode_layout);
         emptyView = view.findViewById(R.id.empty_view);
 
         // 下拉刷新
         swipeRefresh.setOnRefreshListener(this::loadData);
+
+        // 设置模式切换（离线/云端）
+        if (tabModeLayout != null && tokenManager.isLoggedIn()) {
+            tabModeLayout.setVisibility(View.VISIBLE);
+            tabModeLayout.addOnTabSelectedListener(new TabLayout.OnTabSelectedListener() {
+                @Override
+                public void onTabSelected(TabLayout.Tab tab) {
+                    showCloudShares = tab.getPosition() == 1;
+                    loadDataSilently();
+                }
+
+                @Override
+                public void onTabUnselected(TabLayout.Tab tab) {}
+
+                @Override
+                public void onTabReselected(TabLayout.Tab tab) {}
+            });
+        } else if (tabModeLayout != null) {
+            tabModeLayout.setVisibility(View.GONE);
+        }
     }
 
     private void initViewModel() {
@@ -106,16 +138,37 @@ public class ShareListFragment extends Fragment {
     }
 
     private void setupObservers() {
-        // 观察分享列表
+        // 观察离线分享列表
         if (isMyShares) {
             viewModel.myShares.observe(getViewLifecycleOwner(), shares -> {
-                adapter.setShareList(shares);
-                updateEmptyView(shares == null || shares.isEmpty());
+                if (!showCloudShares) {
+                    adapter.setShareList(shares);
+                    updateEmptyView(shares == null || shares.isEmpty());
+                }
             });
         } else {
             viewModel.receivedShares.observe(getViewLifecycleOwner(), shares -> {
-                adapter.setShareList(shares);
-                updateEmptyView(shares == null || shares.isEmpty());
+                if (!showCloudShares) {
+                    adapter.setShareList(shares);
+                    updateEmptyView(shares == null || shares.isEmpty());
+                }
+            });
+        }
+
+        // 观察云端分享列表
+        if (isMyShares) {
+            viewModel.cloudMyShares.observe(getViewLifecycleOwner(), shares -> {
+                if (showCloudShares) {
+                    adapter.setCloudShareList(shares);
+                    updateEmptyView(shares == null || shares.isEmpty());
+                }
+            });
+        } else {
+            viewModel.cloudReceivedShares.observe(getViewLifecycleOwner(), shares -> {
+                if (showCloudShares) {
+                    adapter.setCloudShareList(shares);
+                    updateEmptyView(shares == null || shares.isEmpty());
+                }
             });
         }
 
@@ -136,16 +189,33 @@ public class ShareListFragment extends Fragment {
         viewModel.revokeSuccess.observe(getViewLifecycleOwner(), success -> {
             if (success) {
                 Toast.makeText(requireContext(), "分享已撤销", Toast.LENGTH_SHORT).show();
-                loadData(); // 重新加载数据
+                loadDataSilently(); // 静默重新加载数据
+            }
+        });
+
+        // 观察操作成功
+        viewModel.operationSuccess.observe(getViewLifecycleOwner(), success -> {
+            if (success) {
+                loadDataSilently(); // 静默重新加载数据
             }
         });
     }
 
     private void loadData() {
-        if (isMyShares) {
-            viewModel.loadMyShares();
+        if (showCloudShares && tokenManager.isLoggedIn()) {
+            // 加载云端分享
+            if (isMyShares) {
+                viewModel.loadCloudMyShares();
+            } else {
+                viewModel.loadCloudReceivedShares();
+            }
         } else {
-            viewModel.loadReceivedShares();
+            // 加载离线分享
+            if (isMyShares) {
+                viewModel.loadMyShares();
+            } else {
+                viewModel.loadReceivedShares();
+            }
         }
     }
 
@@ -164,7 +234,11 @@ public class ShareListFragment extends Fragment {
             .setMessage("确定要撤销这个分享吗？对方将无法再访问此密码。")
             .setNegativeButton("取消", null)
             .setPositiveButton("撤销", (dialog, which) -> {
-                viewModel.revokeShare(share.getShareId());
+                if (showCloudShares) {
+                    viewModel.revokeCloudShare(share.getShareId());
+                } else {
+                    viewModel.revokeShare(share.getShareId());
+                }
             })
             .show();
     }
@@ -172,7 +246,25 @@ public class ShareListFragment extends Fragment {
     @Override
     public void onResume() {
         super.onResume();
-        // 刷新数据
-        loadData();
+        // 静默刷新数据（不显示加载动画）
+        loadDataSilently();
+    }
+
+    private void loadDataSilently() {
+        if (showCloudShares && tokenManager.isLoggedIn()) {
+            // 加载云端分享
+            if (isMyShares) {
+                viewModel.loadCloudMySharesSilently();
+            } else {
+                viewModel.loadCloudReceivedSharesSilently();
+            }
+        } else {
+            // 加载离线分享
+            if (isMyShares) {
+                viewModel.loadMySharesSilently();
+            } else {
+                viewModel.loadReceivedSharesSilently();
+            }
+        }
     }
 }

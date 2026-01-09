@@ -320,4 +320,107 @@ public interface BackendService {
      * @return 随机分享密码
      */
     String generateSharePassword(int length);
+
+    // ========== 新增：云端分享接口（后端API集成）==========
+
+    /**
+     * 用户注册
+     * @param username 用户名
+     * @param password 密码
+     * @param displayName 显示名称
+     * @return AuthResponse 包含token和用户信息
+     */
+    com.ttt.safevault.dto.response.AuthResponse register(String username, String password, String displayName);
+
+    /**
+     * 用户登录
+     * @param username 用户名
+     * @param password 密码
+     * @return AuthResponse 包含token和用户信息
+     */
+    com.ttt.safevault.dto.response.AuthResponse login(String username, String password);
+
+    /**
+     * 刷新Token
+     * @param refreshToken 刷新Token
+     * @return AuthResponse 新的token信息
+     */
+    com.ttt.safevault.dto.response.AuthResponse refreshToken(String refreshToken);
+
+    /**
+     * 创建云端分享（通过后端API）
+     * @param passwordId 密码ID
+     * @param toUserId 接收方用户ID（null表示直接分享）
+     * @param expireInMinutes 过期时间（分钟）
+     * @param permission 分享权限
+     * @param shareType 分享类型：DIRECT, USER_TO_USER, NEARBY
+     * @return ShareResponse 包含shareId和shareToken
+     */
+    com.ttt.safevault.dto.response.ShareResponse createCloudShare(int passwordId, String toUserId,
+                                                                   int expireInMinutes, SharePermission permission,
+                                                                   String shareType);
+
+    /**
+     * 接收云端分享
+     * @param shareId 分享ID或Token
+     * @return ReceivedShareResponse 分享详情和密码数据
+     */
+    com.ttt.safevault.dto.response.ReceivedShareResponse receiveCloudShare(String shareId);
+
+    /**
+     * 撤销云端分享
+     * @param shareId 分享ID
+     */
+    void revokeCloudShare(String shareId);
+
+    /**
+     * 保存云端分享到本地
+     * @param shareId 分享ID
+     */
+    void saveCloudShare(String shareId);
+
+    /**
+     * 获取我创建的云端分享列表
+     * @return 分享列表
+     */
+    java.util.List<com.ttt.safevault.dto.response.ReceivedShareResponse> getMyCloudShares();
+
+    /**
+     * 获取我接收的云端分享列表
+     * @return 分享列表
+     */
+    java.util.List<com.ttt.safevault.dto.response.ReceivedShareResponse> getReceivedCloudShares();
+
+    /**
+     * 注册位置信息（附近发现）
+     * @param latitude 纬度
+     * @param longitude 经度
+     * @param radius 发现范围（米）
+     */
+    void registerLocation(double latitude, double longitude, double radius);
+
+    /**
+     * 获取附近用户
+     * @param latitude 纬度
+     * @param longitude 经度
+     * @param radius 搜索半径（米）
+     * @return 附近用户列表
+     */
+    java.util.List<com.ttt.safevault.dto.response.NearbyUserResponse> getNearbyUsers(double latitude, double longitude, double radius);
+
+    /**
+     * 发送心跳保持在线状态
+     */
+    void sendHeartbeat();
+
+    /**
+     * 检查是否已登录云端服务
+     * @return true表示已登录
+     */
+    boolean isCloudLoggedIn();
+
+    /**
+     * 登出云端服务
+     */
+    void logoutCloud();
 }

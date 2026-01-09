@@ -73,24 +73,34 @@ The frontend **never** handles:
 ```
 com.ttt.safevault/
 ├── ui/                      # UI components (Activities/Fragments)
+│   └── share/               # Password sharing UI components
 ├── viewmodel/               # MVVM ViewModels
 ├── model/                   # Data models and BackendService interface
 ├── autofill/                # Android AutofillService implementation
-├── security/                # Security utilities and configuration
+├── security/                # Security utilities and Token management
+├── network/                 # Network layer (Retrofit, WebSocket, Token management)
+├── dto/                     # Data Transfer Objects (Request/Response)
+├── service/                 # Background services (WebSocket notifications)
+├── receiver/                # Broadcast receivers
 ├── utils/                   # Helper classes
 └── adapter/                 # RecyclerView adapters
 ```
 
 ### Core Components
-- **LoginActivity**: App entry point with authentication
+- **LoginActivity**: App entry point with local and cloud authentication
 - **MainActivity**: Main container with Navigation Component and Bottom Navigation
 - **PasswordListFragment**: Display password entries with search
-- **PasswordDetailFragment**: Show individual password details
+- **PasswordDetailFragment**: Show individual password details with share button
 - **EditPasswordFragment**: Create/edit password entries
 - **GeneratorFragment**: Standalone password generator with strength indicator and history
 - **SettingsFragment**: App settings and preferences
 - **AutofillServiceImpl**: Android AutofillService integration
 - **BackendService**: Interface defining all backend operations
+- **ShareActivity**: Password sharing configuration (offline and cloud)
+- **ReceiveShareActivity**: Receive shared passwords
+- **NearbyUsersActivity**: Discover nearby users for sharing
+- **ShareHistoryFragment**: View sharing history (created and received)
+- **ShareNotificationService**: WebSocket service for real-time sharing notifications
 
 ### Technology Stack
 - **Min SDK**: 29 (Android 10)
@@ -177,3 +187,137 @@ The GeneratorFragment provides comprehensive password generation:
 - **Generation History**: Recent passwords stored locally (max 10 items)
 - **Clear History**: Button to remove all stored history
 - **Secure Clipboard**: 30-second auto-clear after copying
+
+## Password Sharing Features
+
+### Overview
+SafeVault supports both offline and cloud-based password sharing with multiple transmission methods:
+- **Offline Sharing**: QR code, Bluetooth, NFC
+- **Cloud Sharing**: Direct link, user-to-user, nearby users
+
+### Sharing Types
+
+#### 1. Offline Sharing (Direct)
+- Generate QR code containing encrypted password data
+- Bluetooth transmission between nearby devices
+- NFC tap-to-share functionality
+- Requires share password for additional security
+
+#### 2. Cloud Direct Sharing
+- Generate shareable link (safevault://share/{shareId})
+- Anyone with link can access (if permissions allow)
+- QR code for easy scanning
+- Configurable expiration time
+
+#### 3. User-to-User Sharing
+- Share with specific SafeVault users
+- Requires both users to have cloud accounts
+- Real-time notification via WebSocket
+- Access control and permission management
+
+#### 4. Nearby Users Sharing
+- Discover nearby SafeVault users via location
+- Share with users in physical proximity
+- Requires location permissions
+- Automatic distance calculation
+
+### Share Permissions
+Each share can have granular permissions:
+- **canView**: Receiver can view the password
+- **canSave**: Receiver can save to their vault
+- **revocable**: Share can be revoked by sender
+
+### Cloud Authentication
+- **Register**: Create cloud account with username, password, display name
+- **Login**: Authenticate with JWT tokens
+- **Auto-refresh**: Tokens automatically refresh when expired
+- **Biometric**: Support for fingerprint/face unlock
+
+### Real-time Notifications
+- WebSocket connection maintained by ShareNotificationService
+- Receive notifications for:
+  - New password shares
+  - Share revocations
+  - Online user status updates
+- System notifications with deep links to shared content
+
+### Network Layer Architecture
+```
+Frontend (Activities/Fragments)
+    ↓
+ViewModels (AuthViewModel, ShareViewModel, etc.)
+    ↓
+BackendService Interface
+    ↓
+BackendServiceImpl
+    ↓
+Network Layer:
+├── RetrofitClient (REST API)
+├── WebSocketManager (Real-time)
+└── TokenManager (Authentication)
+```
+
+### API Integration
+The app integrates with `safevault-backend` REST APIs:
+- **Authentication**: `/v1/auth/register`, `/v1/auth/login`, `/v1/auth/refresh`
+- **Shares**: `/v1/shares` (CRUD operations)
+- **Discovery**: `/v1/discovery/register`, `/v1/discovery/nearby`
+- **WebSocket**: Real-time notifications
+
+### Security Considerations for Sharing
+- All cloud communication uses HTTPS
+- Tokens stored securely with AndroidKeyStore
+- Share passwords encrypt offline transfers
+- FLAG_SECURE prevents screenshots of sharing UI
+- Expiration times limit share validity
+
+### Deep Link Handling
+The app handles deep links for password sharing:
+- `safevault://share/{shareId}` - Open received share
+- `safevault://offline/{data}` - Offline share with encrypted data
+- NFC NDEF records - Auto-open share on tap
+
+### Location Services (Nearby Users)
+- **Permissions**: ACCESS_FINE_LOCATION required
+- **Registration**: Users register their location with server
+- **Discovery**: Query for users within specified radius
+- **Heartbeat**: Periodic updates to maintain online status
+- **Privacy**: Location data only used for sharing discovery
+
+### Notification Channels
+- **Share Notification Channel**: High priority for new shares
+- **Foreground Service**: Maintains WebSocket connection
+- **Badge Support**: Show notification count on launcher icon
+
+### Share History Management
+Users can view:
+- **My Shares**: Passwords they've shared with others
+- **Received Shares**: Passwords others have shared with them
+- **Status Tracking**: Active, expired, revoked, accepted
+- **Actions**: Revoke active shares, save received shares
+
+### UI Components for Sharing
+
+#### ShareActivity
+- Choose sharing method (offline/cloud)
+- Configure permissions (view, save, revoke)
+- Set expiration time
+- Select target user (for user-to-user sharing)
+
+#### ReceiveShareActivity
+- Display shared password details
+- Show permissions and expiration
+- Save to vault or decline
+- Handle offline shares with password prompt
+
+#### NearbyUsersActivity
+- List nearby SafeVault users
+- Show distance and online status
+- Filter by search radius
+- Initiate share with selected user
+
+#### ShareHistoryFragment
+- Tabbed interface (created/received)
+- Filter by offline/cloud
+- Revoke or save shares
+- View share details

@@ -115,7 +115,7 @@ public class EditPasswordFragment extends Fragment {
     private void initViewModel() {
         // 通过ViewModelFactory创建ViewModel
         ViewModelProvider.Factory factory = new com.ttt.safevault.viewmodel.ViewModelFactory(requireActivity().getApplication());
-        viewModel = new ViewModelProvider(requireActivity(), factory).get(EditPasswordViewModel.class);
+        viewModel = new ViewModelProvider(this, factory).get(EditPasswordViewModel.class);
 
         viewModel.loadPasswordItem(passwordId);
     }

@@ -363,7 +363,7 @@ public class PasswordListFragment extends Fragment implements PasswordListAdapte
     @Override
     public void onResume() {
         super.onResume();
-        // 每次返回时刷新数据
-        viewModel.refresh();
+        // 每次返回时静默刷新数据（不显示加载动画）
+        viewModel.refreshSilently();
     }
 }

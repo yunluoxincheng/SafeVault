@@ -11,9 +11,9 @@ import android.view.autofill.AutofillManager;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.appcompat.app.AlertDialog;
 import androidx.navigation.Navigation;
 
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.ttt.safevault.R;
 import com.ttt.safevault.databinding.FragmentSettingsBinding;
 
@@ -46,10 +46,6 @@ public class SettingsFragment extends BaseFragment {
 
         // 自动填充服务
         binding.cardAutofillService.setOnClickListener(v -> openAutofillSettings());
-
-        // 分享设置
-        binding.cardShareSettings.setOnClickListener(v ->
-                Navigation.findNavController(v).navigate(R.id.action_settings_to_shareSettings));
 
         // 外观设置
         binding.cardAppearance.setOnClickListener(v ->
@@ -102,12 +98,12 @@ public class SettingsFragment extends BaseFragment {
     private void openAutofillSettings() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             AutofillManager autofillManager = requireContext().getSystemService(AutofillManager.class);
-            
+
             if (autofillManager != null && autofillManager.hasEnabledAutofillServices()) {
                 // 已启用，显示信息对话框
-                new AlertDialog.Builder(requireContext())
+                new MaterialAlertDialogBuilder(requireContext())
                     .setTitle(R.string.autofill_service)
-                    .setMessage(R.string.autofill_service_description)
+                    .setMessage("SafeVault 自动填充服务已启用。您可以在系统设置中更改或禁用此服务。")
                     .setPositiveButton(R.string.autofill_go_to_settings, (dialog, which) -> {
                         openSystemAutofillSettings();
                     })
@@ -115,9 +111,9 @@ public class SettingsFragment extends BaseFragment {
                     .show();
             } else {
                 // 未启用，引导用户启用
-                new AlertDialog.Builder(requireContext())
-                    .setTitle(R.string.autofill_enable)
-                    .setMessage(R.string.autofill_service_description + "\n\n" + "请在系统设置中选择 SafeVault 作为自动填充服务。")
+                new MaterialAlertDialogBuilder(requireContext())
+                    .setTitle("启用自动填充")
+                    .setMessage("自动填充功能可以让 SafeVault 在其他应用中自动填充您的密码。\n\n请点击下方按钮前往系统设置，选择 SafeVault 作为自动填充服务。")
                     .setPositiveButton(R.string.autofill_go_to_settings, (dialog, which) -> {
                         openSystemAutofillSettings();
                     })

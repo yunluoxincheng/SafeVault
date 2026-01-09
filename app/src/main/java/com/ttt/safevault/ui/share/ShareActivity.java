@@ -4,6 +4,7 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.ArrayAdapter;
+import android.widget.AutoCompleteTextView;
 import android.widget.Toast;
 
 import androidx.annotation.Nullable;
@@ -15,6 +16,7 @@ import com.ttt.safevault.R;
 import com.ttt.safevault.ServiceLocator;
 import com.ttt.safevault.databinding.ActivityShareBinding;
 import com.ttt.safevault.model.SharePermission;
+import com.ttt.safevault.network.TokenManager;
 import com.ttt.safevault.viewmodel.ShareViewModel;
 import com.ttt.safevault.viewmodel.ViewModelFactory;
 
@@ -23,18 +25,25 @@ import java.util.List;
 
 /**
  * 密码分享配置界面
+ * 支持离线分享和云端分享
  */
 public class ShareActivity extends AppCompatActivity {
 
     private ActivityShareBinding binding;
     private ShareViewModel viewModel;
+    private TokenManager tokenManager;
     private int passwordId;
 
     // 传输方式
     private enum TransmissionMethod {
-        QR_CODE, BLUETOOTH, NFC, CLOUD
+        QR_CODE, BLUETOOTH, NFC, CLOUD_DIRECT, CLOUD_USER, CLOUD_NEARBY
     }
     private TransmissionMethod selectedTransmissionMethod = TransmissionMethod.QR_CODE;
+
+    // 分享类型
+    private static final String SHARE_TYPE_DIRECT = "DIRECT";
+    private static final String SHARE_TYPE_USER_TO_USER = "USER_TO_USER";
+    private static final String SHARE_TYPE_NEARBY = "NEARBY";
 
     // 过期时间选项（分钟）
     private final String[] expireTimeOptions = {
@@ -50,6 +59,9 @@ public class ShareActivity extends AppCompatActivity {
         
         binding = ActivityShareBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
+
+        // 初始化TokenManager
+        tokenManager = TokenManager.getInstance(this);
 
         // 获取要分享的密码ID
         passwordId = getIntent().getIntExtra("PASSWORD_ID", -1);
@@ -105,18 +117,38 @@ public class ShareActivity extends AppCompatActivity {
                 if (checkedId == R.id.chipQrCode) {
                     selectedTransmissionMethod = TransmissionMethod.QR_CODE;
                     binding.textBluetoothHint.setVisibility(View.GONE);
+                    binding.cloudOptionsSection.setVisibility(View.GONE);
                 } else if (checkedId == R.id.chipBluetooth) {
                     selectedTransmissionMethod = TransmissionMethod.BLUETOOTH;
                     binding.textBluetoothHint.setVisibility(View.VISIBLE);
                     binding.textBluetoothHint.setText(R.string.bluetooth_share_hint);
+                    binding.cloudOptionsSection.setVisibility(View.GONE);
                 } else if (checkedId == R.id.chipNfc) {
                     selectedTransmissionMethod = TransmissionMethod.NFC;
                     binding.textBluetoothHint.setVisibility(View.VISIBLE);
                     binding.textBluetoothHint.setText(R.string.nfc_hint);
-                } else if (checkedId == R.id.chipCloud) {
-                    selectedTransmissionMethod = TransmissionMethod.CLOUD;
+                    binding.cloudOptionsSection.setVisibility(View.GONE);
+                } else if (checkedId == R.id.chipCloudDirect) {
+                    selectedTransmissionMethod = TransmissionMethod.CLOUD_DIRECT;
                     binding.textBluetoothHint.setVisibility(View.VISIBLE);
-                    binding.textBluetoothHint.setText(R.string.cloud_hint);
+                    binding.textBluetoothHint.setText(R.string.cloud_direct_hint);
+                    binding.cloudOptionsSection.setVisibility(View.VISIBLE);
+                    binding.userIdInputLayout.setVisibility(View.GONE);
+                } else if (checkedId == R.id.chipCloudUser) {
+                    selectedTransmissionMethod = TransmissionMethod.CLOUD_USER;
+                    binding.textBluetoothHint.setVisibility(View.VISIBLE);
+                    binding.textBluetoothHint.setText(R.string.cloud_user_hint);
+                    binding.cloudOptionsSection.setVisibility(View.VISIBLE);
+                    binding.userIdInputLayout.setVisibility(View.VISIBLE);
+                } else if (checkedId == R.id.chipCloudNearby) {
+                    selectedTransmissionMethod = TransmissionMethod.CLOUD_NEARBY;
+                    binding.textBluetoothHint.setVisibility(View.VISIBLE);
+                    binding.textBluetoothHint.setText(R.string.cloud_nearby_hint);
+                    binding.cloudOptionsSection.setVisibility(View.VISIBLE);
+                    binding.userIdInputLayout.setVisibility(View.GONE);
+                    // 打开附近用户选择界面
+                    Intent intent = new Intent(ShareActivity.this, NearbyUsersActivity.class);
+                    startActivityForResult(intent, REQUEST_CODE_NEARBY_USER);
                 }
             }
         });
@@ -149,13 +181,18 @@ public class ShareActivity extends AppCompatActivity {
                         intent.putExtra("TRANSMISSION_METHOD", selectedTransmissionMethod.name());
                         
                         // 如果是离线分享，传递分享密码
-                        Boolean isOffline = viewModel.isOfflineShare.getValue();
-                        if (isOffline != null && isOffline) {
+                        boolean isOfflineShare = selectedTransmissionMethod == TransmissionMethod.QR_CODE
+                                || selectedTransmissionMethod == TransmissionMethod.BLUETOOTH
+                                || selectedTransmissionMethod == TransmissionMethod.NFC;
+                        if (isOfflineShare) {
                             intent.putExtra("IS_OFFLINE_SHARE", true);
                             String sharePassword = viewModel.sharePassword.getValue();
                             if (sharePassword != null) {
                                 intent.putExtra("SHARE_PASSWORD", sharePassword);
                             }
+                        } else {
+                            // 云端分享，传递shareId
+                            intent.putExtra("IS_CLOUD_SHARE", true);
                         }
                         
                         startActivity(intent);
@@ -177,8 +214,50 @@ public class ShareActivity extends AppCompatActivity {
         permission.setCanSave(binding.switchAllowSave.isChecked());
         permission.setRevocable(binding.switchRevocable.isChecked());
 
-        // 创建离线分享（使用二维码）
-        viewModel.createOfflineShare(passwordId, expireInMinutes, permission);
+        // 根据传输方式决定分享类型
+        switch (selectedTransmissionMethod) {
+            case CLOUD_DIRECT:
+                // 云端直接分享
+                if (!tokenManager.isLoggedIn()) {
+                    Toast.makeText(this, R.string.please_login_cloud_first, Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                viewModel.createCloudShare(passwordId, null, expireInMinutes, permission, SHARE_TYPE_DIRECT);
+                break;
+
+            case CLOUD_USER:
+                // 云端用户对用户分享
+                if (!tokenManager.isLoggedIn()) {
+                    Toast.makeText(this, R.string.please_login_cloud_first, Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                String toUserId = binding.userIdInput.getText().toString().trim();
+                if (toUserId.isEmpty()) {
+                    Toast.makeText(this, R.string.please_enter_user_id, Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                viewModel.createCloudShare(passwordId, toUserId, expireInMinutes, permission, SHARE_TYPE_USER_TO_USER);
+                break;
+
+            case CLOUD_NEARBY:
+                // 云端附近用户分享
+                if (!tokenManager.isLoggedIn()) {
+                    Toast.makeText(this, R.string.please_login_cloud_first, Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                String nearbyUserId = getIntent().getStringExtra("SELECTED_USER_ID");
+                if (nearbyUserId == null || nearbyUserId.isEmpty()) {
+                    Toast.makeText(this, R.string.please_select_nearby_user, Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                viewModel.createCloudShare(passwordId, nearbyUserId, expireInMinutes, permission, SHARE_TYPE_NEARBY);
+                break;
+
+            default:
+                // 离线分享（使用二维码/蓝牙/NFC）
+                viewModel.createOfflineShare(passwordId, expireInMinutes, permission);
+                break;
+        }
     }
 
     private int getExpireTimeValue(String expireTimeText) {
@@ -194,5 +273,24 @@ public class ShareActivity extends AppCompatActivity {
     protected void onDestroy() {
         super.onDestroy();
         binding = null;
+    }
+
+    private static final int REQUEST_CODE_NEARBY_USER = 1001;
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQUEST_CODE_NEARBY_USER && resultCode == RESULT_OK && data != null) {
+            String selectedUserId = data.getStringExtra("SELECTED_USER_ID");
+            String selectedUserName = data.getStringExtra("SELECTED_USER_NAME");
+            if (selectedUserId != null) {
+                getIntent().putExtra("SELECTED_USER_ID", selectedUserId);
+                if (binding.userIdInputLayout != null) {
+                    binding.userIdInputLayout.setVisibility(View.VISIBLE);
+                    binding.userIdInput.setText(selectedUserName != null ? selectedUserName : selectedUserId);
+                    binding.userIdInput.setEnabled(false);
+                }
+            }
+        }
     }
 }

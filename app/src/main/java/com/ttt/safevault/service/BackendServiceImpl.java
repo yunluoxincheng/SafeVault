@@ -60,6 +60,10 @@ public class BackendServiceImpl implements BackendService {
     // 分享功能相关的内存存储（简化实现，生产环境应使用数据库）
     private final Map<String, PasswordShare> sharesMap = new ConcurrentHashMap<>();
 
+    // 云端服务API客户端
+    private com.ttt.safevault.network.RetrofitClient retrofitClient;
+    private com.ttt.safevault.network.TokenManager tokenManager;
+
     public BackendServiceImpl(@NonNull Context context) {
         this.context = context.getApplicationContext();
         // 使用 ServiceLocator 的共享 CryptoManager，确保解锁状态同步
@@ -68,6 +72,10 @@ public class BackendServiceImpl implements BackendService {
         this.securityConfig = new SecurityConfig(context);
         this.prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         this.secureRandom = new SecureRandom();
+        
+        // 初始化云端API客户端
+        this.retrofitClient = com.ttt.safevault.network.RetrofitClient.getInstance(context);
+        this.tokenManager = this.retrofitClient.getTokenManager();
         
         // 初始化生物识别密钥管理器
         try {
@@ -939,5 +947,256 @@ public class BackendServiceImpl implements BackendService {
     @Override
     public String generateSharePassword(int length) {
         return com.ttt.safevault.utils.OfflineShareUtils.generateRandomPassword(length);
+    }
+
+    // ========== 云端分享接口实现 ==========
+
+    @Override
+    public com.ttt.safevault.dto.response.AuthResponse register(String username, String password, String displayName) {
+        try {
+            // 获取设备ID和公钥
+            String deviceId = com.ttt.safevault.security.KeyManager.getInstance(context).getDeviceId();
+            String publicKey = com.ttt.safevault.security.KeyManager.getInstance(context).getPublicKey();
+
+            com.ttt.safevault.dto.request.RegisterRequest request = new com.ttt.safevault.dto.request.RegisterRequest(
+                deviceId, username, displayName, publicKey
+            );
+
+            com.ttt.safevault.dto.response.AuthResponse response = retrofitClient.getAuthServiceApi()
+                .register(request)
+                .blockingFirst();
+
+            if (response != null) {
+                tokenManager.saveTokens(response);
+                Log.d(TAG, "User registered successfully: " + response.getUserId());
+            }
+
+            return response;
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to register", e);
+            return null;
+        }
+    }
+
+    @Override
+    public com.ttt.safevault.dto.response.AuthResponse login(String username, String password) {
+        try {
+            // 获取保存的userId和设备ID
+            String userId = tokenManager.getUserId();
+            String deviceId = com.ttt.safevault.security.KeyManager.getInstance(context).getDeviceId();
+
+            if (userId == null) {
+                Log.e(TAG, "No userId found, please register first");
+                return null;
+            }
+
+            // 生成签名
+            String signature = generateSignature(userId, deviceId);
+
+            com.ttt.safevault.dto.request.LoginRequest request = new com.ttt.safevault.dto.request.LoginRequest(
+                userId, deviceId, signature
+            );
+
+            com.ttt.safevault.dto.response.AuthResponse response = retrofitClient.getAuthServiceApi()
+                .login(request)
+                .blockingFirst();
+
+            if (response != null) {
+                tokenManager.saveTokens(response);
+                Log.d(TAG, "User logged in successfully: " + response.getUserId());
+            }
+
+            return response;
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to login", e);
+            return null;
+        }
+    }
+
+    /**
+     * 生成签名（简化版本）
+     */
+    private String generateSignature(String userId, String deviceId) {
+        try {
+            String data = userId + deviceId + System.currentTimeMillis();
+            java.security.MessageDigest digest = java.security.MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(data.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            return java.util.Base64.getEncoder().encodeToString(hash);
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to generate signature", e);
+            return "";
+        }
+    }
+
+    @Override
+    public com.ttt.safevault.dto.response.AuthResponse refreshToken(String refreshToken) {
+        try {
+            com.ttt.safevault.dto.response.AuthResponse response = retrofitClient.getAuthServiceApi()
+                .refreshToken("Bearer " + refreshToken)
+                .blockingFirst();
+            
+            if (response != null) {
+                tokenManager.saveTokens(response);
+                Log.d(TAG, "Token refreshed successfully");
+            }
+            
+            return response;
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to refresh token", e);
+            return null;
+        }
+    }
+
+    @Override
+    public com.ttt.safevault.dto.response.ShareResponse createCloudShare(int passwordId, String toUserId,
+                                                                          int expireInMinutes, SharePermission permission,
+                                                                          String shareType) {
+        try {
+            // 获取密码数据
+            PasswordItem item = decryptItem(passwordId);
+            if (item == null) {
+                Log.e(TAG, "Password not found: " + passwordId);
+                return null;
+            }
+            
+            // 构建请求
+            com.ttt.safevault.dto.request.CreateShareRequest request = new com.ttt.safevault.dto.request.CreateShareRequest();
+            request.setPasswordId(String.valueOf(passwordId));
+            request.setTitle(item.getTitle());
+            request.setUsername(item.getUsername());
+            request.setEncryptedPassword(item.getPassword()); // 密码已加密
+            request.setUrl(item.getUrl());
+            request.setNotes(item.getNotes());
+            request.setToUserId(toUserId);
+            request.setExpireInMinutes(expireInMinutes);
+            request.setPermission(permission);
+            request.setShareType(shareType);
+            
+            // 调用API
+            com.ttt.safevault.dto.response.ShareResponse response = retrofitClient.getShareServiceApi()
+                .createShare(request)
+                .blockingFirst();
+            
+            Log.d(TAG, "Cloud share created: " + response.getShareId());
+            return response;
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to create cloud share", e);
+            return null;
+        }
+    }
+
+    @Override
+    public com.ttt.safevault.dto.response.ReceivedShareResponse receiveCloudShare(String shareId) {
+        try {
+            com.ttt.safevault.dto.response.ReceivedShareResponse response = retrofitClient.getShareServiceApi()
+                .receiveShare(shareId)
+                .blockingFirst();
+            
+            Log.d(TAG, "Cloud share received: " + shareId);
+            return response;
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to receive cloud share", e);
+            return null;
+        }
+    }
+
+    @Override
+    public void revokeCloudShare(String shareId) {
+        try {
+            retrofitClient.getShareServiceApi()
+                .revokeShare(shareId)
+                .blockingSubscribe();
+            
+            Log.d(TAG, "Cloud share revoked: " + shareId);
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to revoke cloud share", e);
+        }
+    }
+
+    @Override
+    public void saveCloudShare(String shareId) {
+        try {
+            retrofitClient.getShareServiceApi()
+                .saveSharedPassword(shareId)
+                .blockingSubscribe();
+            
+            Log.d(TAG, "Cloud share saved: " + shareId);
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to save cloud share", e);
+        }
+    }
+
+    @Override
+    public java.util.List<com.ttt.safevault.dto.response.ReceivedShareResponse> getMyCloudShares() {
+        try {
+            return retrofitClient.getShareServiceApi()
+                .getMyShares()
+                .blockingFirst();
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to get my cloud shares", e);
+            return new ArrayList<>();
+        }
+    }
+
+    @Override
+    public java.util.List<com.ttt.safevault.dto.response.ReceivedShareResponse> getReceivedCloudShares() {
+        try {
+            return retrofitClient.getShareServiceApi()
+                .getReceivedShares()
+                .blockingFirst();
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to get received cloud shares", e);
+            return new ArrayList<>();
+        }
+    }
+
+    @Override
+    public void registerLocation(double latitude, double longitude, double radius) {
+        try {
+            com.ttt.safevault.dto.request.RegisterLocationRequest request = 
+                new com.ttt.safevault.dto.request.RegisterLocationRequest(latitude, longitude, radius);
+            
+            retrofitClient.getDiscoveryServiceApi()
+                .registerLocation(request)
+                .blockingSubscribe();
+            
+            Log.d(TAG, "Location registered");
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to register location", e);
+        }
+    }
+
+    @Override
+    public java.util.List<com.ttt.safevault.dto.response.NearbyUserResponse> getNearbyUsers(double latitude, double longitude, double radius) {
+        try {
+            return retrofitClient.getDiscoveryServiceApi()
+                .getNearbyUsers(latitude, longitude, radius)
+                .blockingFirst();
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to get nearby users", e);
+            return new ArrayList<>();
+        }
+    }
+
+    @Override
+    public void sendHeartbeat() {
+        try {
+            retrofitClient.getDiscoveryServiceApi()
+                .sendHeartbeat()
+                .blockingSubscribe();
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to send heartbeat", e);
+        }
+    }
+
+    @Override
+    public boolean isCloudLoggedIn() {
+        return tokenManager.isLoggedIn();
+    }
+
+    @Override
+    public void logoutCloud() {
+        tokenManager.clearTokens();
+        Log.d(TAG, "Logged out from cloud");
     }
 }

@@ -1,6 +1,7 @@
 package com.ttt.safevault.ui;
 
 import android.content.Intent;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -14,6 +15,7 @@ import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.navigation.NavController;
+import androidx.navigation.NavOptions;
 import androidx.navigation.fragment.NavHostFragment;
 import androidx.navigation.ui.AppBarConfiguration;
 import androidx.navigation.ui.NavigationUI;
@@ -23,12 +25,15 @@ import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.ttt.safevault.R;
 import com.ttt.safevault.model.BackendService;
+import com.ttt.safevault.network.TokenManager;
+import com.ttt.safevault.service.ShareNotificationService;
 import com.ttt.safevault.utils.SearchHistoryManager;
 import com.ttt.safevault.viewmodel.PasswordListViewModel;
 
 /**
  * 主Activity
  * 作为应用的主容器，承载各个Fragment，支持底部导航
+ * 支持云端服务集成和WebSocket实时通知
  */
 public class MainActivity extends AppCompatActivity {
 
@@ -36,6 +41,7 @@ public class MainActivity extends AppCompatActivity {
     private AppBarConfiguration appBarConfiguration;
     private PasswordListViewModel listViewModel;
     private BackendService backendService;
+    private TokenManager tokenManager;
     private SearchHistoryManager searchHistoryManager;
     private BottomNavigationView bottomNavigationView;
     private FloatingActionButton fabAddPassword;
@@ -56,6 +62,9 @@ public class MainActivity extends AppCompatActivity {
         // 获取BackendService实例
         backendService = com.ttt.safevault.ServiceLocator.getInstance().getBackendService();
 
+        // 初始化TokenManager
+        tokenManager = TokenManager.getInstance(this);
+
         // 初始化搜索 debounce handler
         searchDebounceHandler = new Handler(Looper.getMainLooper());
 
@@ -67,9 +76,49 @@ public class MainActivity extends AppCompatActivity {
         initBottomNavigation();
         initFab();
         initViewModel();
-        
+        initCloudServices();
+
         // 处理从自动填充返回的意图
         handleAutofillIntent();
+    }
+
+    /**
+     * 初始化云端服务
+     * 如果用户已登录云端账号，启动WebSocket通知服务
+     */
+    private void initCloudServices() {
+        if (tokenManager != null && tokenManager.isLoggedIn()) {
+            startNotificationService();
+        }
+    }
+
+    /**
+     * 启动分享通知服务
+     * 维护WebSocket连接以接收实时分享通知
+     */
+    private void startNotificationService() {
+        try {
+            Intent serviceIntent = new Intent(this, ShareNotificationService.class);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(serviceIntent);
+            } else {
+                startService(serviceIntent);
+            }
+        } catch (Exception e) {
+            android.util.Log.e("MainActivity", "Failed to start notification service", e);
+        }
+    }
+
+    /**
+     * 停止分享通知服务
+     */
+    private void stopNotificationService() {
+        try {
+            Intent serviceIntent = new Intent(this, ShareNotificationService.class);
+            stopService(serviceIntent);
+        } catch (Exception e) {
+            android.util.Log.e("MainActivity", "Failed to stop notification service", e);
+        }
     }
 
     private void initNavigation() {
@@ -92,33 +141,83 @@ public class MainActivity extends AppCompatActivity {
         MaterialToolbar toolbar = findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
 
-        if (navController != null) {
-            // NavigationUI 会自动根据导航图配置 toolbar
-            NavigationUI.setupWithNavController(toolbar, navController, appBarConfiguration);
+        // 禁用自动配置，手动控制标题以避免闪烁
+        if (getSupportActionBar() != null) {
+            getSupportActionBar().setDisplayHomeAsUpEnabled(false);
         }
 
         // 监听导航变化，动态设置标题和菜单
         if (navController != null) {
             navController.addOnDestinationChangedListener((controller, destination, arguments) -> {
+                // 设置标题
+                int titleRes = getToolbarTitle(destination.getId());
+                if (titleRes != 0) {
+                    toolbar.setTitle(titleRes);
+                }
+
+                // 处理返回按钮显示
+                boolean isTopLevelDestination = destination.getId() == R.id.nav_passwords
+                        || destination.getId() == R.id.nav_share_history
+                        || destination.getId() == R.id.nav_generator
+                        || destination.getId() == R.id.nav_settings;
+
+                if (getSupportActionBar() != null) {
+                    getSupportActionBar().setDisplayHomeAsUpEnabled(!isTopLevelDestination);
+                }
+                toolbar.setNavigationOnClickListener(v -> {
+                    if (!isTopLevelDestination) {
+                        navController.navigateUp();
+                    }
+                });
+
                 // 清除并重新创建菜单
                 invalidateOptionsMenu();
-
-                // 动态设置编辑页面的标题
-                if (destination.getId() == R.id.editPasswordFragment && arguments != null) {
-                    int passwordId = arguments.getInt("passwordId", -1);
-                    boolean isNew = passwordId == -1;
-                    String title = isNew ? "添加密码" : "编辑密码";
-                    toolbar.setTitle(title);
-                }
             });
         }
+    }
+
+    private int getToolbarTitle(int destinationId) {
+        if (destinationId == R.id.nav_passwords) {
+            return R.string.nav_passwords;
+        } else if (destinationId == R.id.nav_share_history) {
+            return R.string.share_history;
+        } else if (destinationId == R.id.nav_generator) {
+            return R.string.nav_generator;
+        } else if (destinationId == R.id.nav_settings) {
+            return R.string.nav_settings;
+        } else if (destinationId == R.id.passwordDetailFragment) {
+            return R.string.password_details;
+        } else if (destinationId == R.id.editPasswordFragment) {
+            return R.string.edit;
+        } else if (destinationId == R.id.accountSecurityFragment) {
+            return R.string.account_security;
+        } else if (destinationId == R.id.appearanceSettingsFragment) {
+            return R.string.appearance_settings;
+        } else if (destinationId == R.id.aboutFragment) {
+            return R.string.about;
+        }
+        return 0;
     }
 
     private void initBottomNavigation() {
         bottomNavigationView = findViewById(R.id.bottom_navigation);
         if (bottomNavigationView != null && navController != null) {
-            // 设置底部导航与 NavController 的关联
-            NavigationUI.setupWithNavController(bottomNavigationView, navController);
+            // 手动设置底部导航的点击事件，禁用动画
+            bottomNavigationView.setOnItemSelectedListener(item -> {
+                int itemId = item.getItemId();
+                // 只在切换到不同的目标时才导航
+                if (navController.getCurrentDestination() != null
+                        && navController.getCurrentDestination().getId() != itemId) {
+                    navController.navigate(itemId, null,
+                            new NavOptions.Builder()
+                                    .setEnterAnim(0)
+                                    .setExitAnim(0)
+                                    .setPopEnterAnim(0)
+                                    .setPopExitAnim(0)
+                                    .build());
+                }
+                return true;
+            });
 
             // 监听导航变化，控制底部导航显示
             navController.addOnDestinationChangedListener((controller, destination, arguments) -> {
@@ -130,6 +229,14 @@ public class MainActivity extends AppCompatActivity {
                         || destinationId == R.id.nav_settings;
 
                 bottomNavigationView.setVisibility(isTopLevelDestination ? View.VISIBLE : View.GONE);
+
+                // 同步底部导航的选中状态
+                if (isTopLevelDestination) {
+                    MenuItem item = bottomNavigationView.getMenu().findItem(destinationId);
+                    if (item != null) {
+                        item.setChecked(true);
+                    }
+                }
             });
         }
     }

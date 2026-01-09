@@ -4,6 +4,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:fitsSystemWindows="true"
     tools:context=".ui.share.ReceiveShareActivity">
 
     <com.google.android.material.appbar.AppBarLayout
@@ -193,6 +194,15 @@
                         android:text="@string/share_info"
                         android:textAppearance="?attr/textAppearanceTitleMedium"
                         android:layout_marginBottom="12dp" />
+
+                    <TextView
+                        android:id="@+id/textShareType"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:textAppearance="?attr/textAppearanceBodyMedium"
+                        android:layout_marginBottom="8dp"
+                        android:visibility="gone"
+                        tools:text="分享方式：云端直接" />
 
                     <TextView
                         android:id="@+id/textExpireTime"

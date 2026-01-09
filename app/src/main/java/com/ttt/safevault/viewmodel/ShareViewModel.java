@@ -1,28 +1,41 @@
 package com.ttt.safevault.viewmodel;
 
 import android.app.Application;
+import android.util.Log;
 
 import androidx.annotation.NonNull;
 import androidx.lifecycle.AndroidViewModel;
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
 
+import com.ttt.safevault.dto.response.ShareResponse;
 import com.ttt.safevault.model.BackendService;
 import com.ttt.safevault.model.PasswordItem;
 import com.ttt.safevault.model.SharePermission;
+import com.ttt.safevault.network.RetrofitClient;
+import com.ttt.safevault.network.TokenManager;
 
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+
+import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers;
+import io.reactivex.rxjava3.disposables.CompositeDisposable;
+import io.reactivex.rxjava3.disposables.Disposable;
+import io.reactivex.rxjava3.schedulers.Schedulers;
 
 /**
  * 密码分享页面的ViewModel
  * 负责管理分享配置和创建分享
  */
 public class ShareViewModel extends AndroidViewModel {
+    private static final String TAG = "ShareViewModel";
 
     private final BackendService backendService;
     private final ExecutorService executor;
+    private final RetrofitClient retrofitClient;
+    private final TokenManager tokenManager;
+    private final CompositeDisposable disposables = new CompositeDisposable();
 
     // LiveData用于UI状态管理
     private final MutableLiveData<Boolean> _isLoading = new MutableLiveData<>(false);
@@ -32,6 +45,7 @@ public class ShareViewModel extends AndroidViewModel {
     private final MutableLiveData<PasswordItem> _passwordItem = new MutableLiveData<>();
     private final MutableLiveData<String> _sharePassword = new MutableLiveData<>();
     private final MutableLiveData<Boolean> _isOfflineShare = new MutableLiveData<>(false);
+    private final MutableLiveData<ShareResponse> _cloudShareResponse = new MutableLiveData<>();
 
     public LiveData<Boolean> isLoading = _isLoading;
     public LiveData<String> errorMessage = _errorMessage;
@@ -40,11 +54,14 @@ public class ShareViewModel extends AndroidViewModel {
     public LiveData<PasswordItem> passwordItem = _passwordItem;
     public LiveData<String> sharePassword = _sharePassword;
     public LiveData<Boolean> isOfflineShare = _isOfflineShare;
+    public LiveData<ShareResponse> cloudShareResponse = _cloudShareResponse;
 
     public ShareViewModel(@NonNull Application application, BackendService backendService) {
         super(application);
         this.backendService = backendService;
         this.executor = Executors.newSingleThreadExecutor();
+        this.retrofitClient = RetrofitClient.getInstance(application);
+        this.tokenManager = retrofitClient.getTokenManager();
     }
 
     /**
@@ -151,9 +168,63 @@ public class ShareViewModel extends AndroidViewModel {
         _shareSuccess.setValue(false);
     }
 
+    /**
+     * 创建云端分享（三种类型）
+     * @param passwordId 密码ID
+     * @param toUserId 接收方用户ID（DIRECT时为null）
+     * @param expireInMinutes 过期时间
+     * @param permission 分享权限
+     * @param shareType 分享类型: DIRECT, USER_TO_USER, NEARBY
+     */
+    public void createCloudShare(int passwordId, String toUserId, int expireInMinutes,
+                                SharePermission permission, String shareType) {
+        if (!tokenManager.isLoggedIn()) {
+            _errorMessage.setValue("请先登录云端服务");
+            return;
+        }
+
+        _isLoading.setValue(true);
+        _errorMessage.setValue(null);
+        _shareSuccess.setValue(false);
+
+        Disposable disposable = io.reactivex.rxjava3.core.Observable.fromCallable(() -> 
+            backendService.createCloudShare(passwordId, toUserId, expireInMinutes, permission, shareType)
+        )
+        .subscribeOn(Schedulers.io())
+        .observeOn(AndroidSchedulers.mainThread())
+        .subscribe(
+            response -> {
+                _isLoading.setValue(false);
+                if (response != null) {
+                    _cloudShareResponse.setValue(response);
+                    _shareResult.setValue(response.getShareToken());
+                    _shareSuccess.setValue(true);
+                    Log.d(TAG, "Cloud share created: " + response.getShareId());
+                } else {
+                    _errorMessage.setValue("创建云端分享失败");
+                }
+            },
+            error -> {
+                _isLoading.setValue(false);
+                _errorMessage.setValue("创建云端分享失败: " + error.getMessage());
+                Log.e(TAG, "Failed to create cloud share", error);
+            }
+        );
+
+        disposables.add(disposable);
+    }
+
+    /**
+     * 检查是否已登录云端
+     */
+    public boolean isCloudLoggedIn() {
+        return tokenManager.isLoggedIn();
+    }
+
     @Override
     protected void onCleared() {
         super.onCleared();
         executor.shutdown();
+        disposables.clear();
     }
 }

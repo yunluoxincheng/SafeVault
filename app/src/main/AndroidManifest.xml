@@ -26,7 +26,18 @@
     <!-- 写入外部存储权限（用于自动填充调试日志） -->
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
-    
+
+    <!-- 位置权限（用于附近用户发现） -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+
+    <!-- 通知权限（Android 13+） -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!-- 前台服务权限 -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+
     <!-- 相机和NFC功能要求（可选） -->
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
@@ -43,6 +54,7 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.SafeVault"
+        android:networkSecurityConfig="@xml/network_security_config"
         tools:targetApi="31">
 
         <!-- 登录页面 -->
@@ -112,6 +124,12 @@
             android:screenOrientation="portrait"
             android:theme="@style/Theme.SafeVault.NoActionBar" />
 
+        <activity
+            android:name=".ui.share.NearbyUsersActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:theme="@style/Theme.SafeVault.NoActionBar" />
+
         <!-- FileProvider用于分享文件 -->
         <provider
             android:name="androidx.core.content.FileProvider"
@@ -144,6 +162,22 @@
             android:exported="false"
             android:screenOrientation="portrait"
             android:theme="@style/Theme.SafeVault.NoActionBar" />
+
+        <!-- 分享通知服务 -->
+        <service
+            android:name=".service.ShareNotificationService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+
+        <!-- 分享通知接收器 -->
+        <receiver
+            android:name=".receiver.ShareNotificationReceiver"
+            android:enabled="true"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.ttt.safevault.action.OPEN_SHARE" />
+            </intent-filter>
+        </receiver>
 
     </application>
 

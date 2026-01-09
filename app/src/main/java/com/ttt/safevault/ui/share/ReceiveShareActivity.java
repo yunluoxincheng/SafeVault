@@ -18,6 +18,7 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.ttt.safevault.R;
 import com.ttt.safevault.ServiceLocator;
 import com.ttt.safevault.databinding.ActivityReceiveShareBinding;
+import com.ttt.safevault.dto.response.ReceivedShareResponse;
 import com.ttt.safevault.model.PasswordItem;
 import com.ttt.safevault.model.PasswordShare;
 import com.ttt.safevault.model.SharePermission;
@@ -32,6 +33,7 @@ import java.util.Locale;
 /**
  * 接收分享界面
  * 显示分享的密码并允许保存
+ * 支持离线分享和云端分享
  */
 public class ReceiveShareActivity extends AppCompatActivity {
 
@@ -39,6 +41,7 @@ public class ReceiveShareActivity extends AppCompatActivity {
     private ReceiveShareViewModel viewModel;
     private String shareId;
     private boolean isPasswordVisible = false;
+    private boolean isCloudShare = false;  // 是否为云端分享
     private String actualPassword = "";
     private NFCTransferManager nfcManager;
 
@@ -105,10 +108,12 @@ public class ReceiveShareActivity extends AppCompatActivity {
         // 检查是否为离线分享
         if (com.ttt.safevault.utils.OfflineShareUtils.isOfflineShare(shareId)) {
             // 离线分享需要密码
+            isCloudShare = false;
             showPasswordInputDialog();
         } else {
-            // 在线分享
-            viewModel.receiveShare(shareId);
+            // 云端分享，直接请求
+            isCloudShare = true;
+            viewModel.receiveCloudShare(shareId);
         }
     }
 
@@ -167,10 +172,17 @@ public class ReceiveShareActivity extends AppCompatActivity {
             }
         });
 
-        // 观察分享详情
+        // 观察分享详情（离线分享）
         viewModel.shareDetails.observe(this, shareDetails -> {
             if (shareDetails != null) {
                 displayShareDetails(shareDetails);
+            }
+        });
+
+        // 观察云端分享详情
+        viewModel.cloudShareDetails.observe(this, cloudShareResponse -> {
+            if (cloudShareResponse != null) {
+                displayCloudShareDetails(cloudShareResponse);
             }
         });
 
@@ -250,7 +262,11 @@ public class ReceiveShareActivity extends AppCompatActivity {
 
     private void saveToLocal() {
         if (shareId != null) {
-            viewModel.saveSharedPassword(shareId);
+            if (isCloudShare) {
+                viewModel.saveCloudShare(shareId);
+            } else {
+                viewModel.saveSharedPassword(shareId);
+            }
         }
     }
 
@@ -312,5 +328,82 @@ public class ReceiveShareActivity extends AppCompatActivity {
         }
         
         return null;
+    }
+
+    /**
+     * 显示云端分享详情
+     */
+    private void displayCloudShareDetails(ReceivedShareResponse response) {
+        // 显示密码信息
+        binding.textTitle.setText(response.getTitle() != null ? response.getTitle() : "无标题");
+        binding.textUsername.setText(response.getUsername() != null ? response.getUsername() : "无用户名");
+        
+        // 保存实际密码
+        actualPassword = response.getDecryptedPassword() != null ? response.getDecryptedPassword() : "";
+        binding.textPassword.setText("••••••••");
+
+        // URL
+        if (response.getUrl() != null && !response.getUrl().isEmpty()) {
+            binding.labelUrl.setVisibility(View.VISIBLE);
+            binding.textUrl.setVisibility(View.VISIBLE);
+            binding.textUrl.setText(response.getUrl());
+        } else {
+            binding.labelUrl.setVisibility(View.GONE);
+            binding.textUrl.setVisibility(View.GONE);
+        }
+
+        // 显示分享者
+        binding.textSharer.setText(response.getFromUserDisplayName() != null ? 
+            response.getFromUserDisplayName() : response.getFromUserId());
+
+        // 显示过期时间
+        if (response.getExpireTime() != null && response.getExpireTime() > 0) {
+            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault());
+            String expireDate = sdf.format(new Date(response.getExpireTime()));
+            long remainingDays = (response.getExpireTime() - System.currentTimeMillis()) / (1000 * 60 * 60 * 24);
+            binding.textExpireTime.setText("有效期：" + remainingDays + "天后过期 (" + expireDate + ")");
+        } else {
+            binding.textExpireTime.setText("有效期：永久有效");
+        }
+
+        // 显示权限
+        SharePermission permission = response.getPermission();
+        if (permission != null) {
+            StringBuilder permText = new StringBuilder("权限：");
+            if (permission.isCanView()) {
+                permText.append("可查看");
+            }
+            if (permission.isCanSave()) {
+                permText.append("、可保存");
+            }
+            if (permission.isRevocable()) {
+                permText.append("、可撤销");
+            }
+            binding.textPermissions.setText(permText.toString());
+
+            // 根据权限控制保存按钮
+            binding.btnSaveToLocal.setEnabled(permission.isCanSave());
+        }
+
+        // 显示分享类型
+        String shareType = response.getShareType();
+        if (shareType != null) {
+            String typeText = "";
+            switch (shareType) {
+                case "DIRECT":
+                    typeText = "直接分享";
+                    break;
+                case "USER_TO_USER":
+                    typeText = "用户对用户";
+                    break;
+                case "NEARBY":
+                    typeText = "附近用户";
+                    break;
+            }
+            if (!typeText.isEmpty()) {
+                binding.textShareType.setVisibility(View.VISIBLE);
+                binding.textShareType.setText("分享方式：" + typeText);
+            }
+        }
     }
 }

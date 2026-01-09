@@ -65,8 +65,13 @@ public class EditPasswordViewModel extends AndroidViewModel {
      * 加载密码条目（编辑模式）
      */
     public void loadPasswordItem(int id) {
+        // 重置保存状态
+        _isSaved.setValue(false);
+        hasChanges = false;
+
         if (id < 0) {
             // 新建密码
+            passwordId = -1;
             _isNewPassword.setValue(true);
             _passwordItem.setValue(new PasswordItem());
             return;

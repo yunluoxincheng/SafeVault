@@ -4,6 +4,7 @@ import android.annotation.SuppressLint;
 import android.content.Intent;
 import android.os.Build;
 import android.os.Bundle;
+import androidx.core.splashscreen.SplashScreen;
 import android.text.Editable;
 import android.text.TextUtils;
 import android.text.TextWatcher;
@@ -11,6 +12,7 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.ProgressBar;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
@@ -23,38 +25,52 @@ import com.ttt.safevault.R;
 import com.ttt.safevault.model.BackendService;
 import com.ttt.safevault.security.BiometricAuthHelper;
 import com.ttt.safevault.utils.AnimationUtils;
+import com.ttt.safevault.viewmodel.AuthViewModel;
 import com.ttt.safevault.viewmodel.LoginViewModel;
 
 /**
  * 登录/解锁页面
- * 处理主密码输入和生物识别解锁
+ * 处理主密码输入、生物识别解锁和云端账号登录
  */
 public class LoginActivity extends AppCompatActivity {
 
     private static final int PERMISSION_REQUEST_CODE = 1001;
     private LoginViewModel viewModel;
+    private AuthViewModel authViewModel;
     private TextInputEditText passwordInput;
     private TextInputEditText confirmPasswordInput;
+    private TextInputEditText usernameInput;
+    private TextInputEditText displayNameInput;
     private TextInputLayout passwordLayout;
     private TextInputLayout confirmPasswordLayout;
+    private TextInputLayout usernameLayout;
+    private TextInputLayout displayNameLayout;
     private Button loginButton;
     private Button biometricButton;
+    private Button cloudLoginButton;
     private TextView errorText;
     private TextView titleText;
+    private TextView switchModeText;
     private ProgressBar progressBar;
     private View confirmPasswordSection;
+    private View cloudLoginSection;
 
     // 状态标志
     private boolean isInitializing = false;
     private boolean isPasswordVisible = false;
     private boolean isConfirmPasswordVisible = false;
     private boolean fromAutofill = false;  // 是否从自动填充跳转过来
+    private boolean isCloudLoginMode = false;  // 是否为云端登录模式
+    private boolean isRegisterMode = false;  // 是否为注册模式
     
     // 生物识别认证助手
     private BiometricAuthHelper biometricAuthHelper;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        // 安装启动画面 (兼容API 29+)
+        SplashScreen.installSplashScreen(this);
+
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_login);
 
@@ -72,6 +88,7 @@ public class LoginActivity extends AppCompatActivity {
         // 初始化ViewModel
         ViewModelProvider.Factory factory = new com.ttt.safevault.viewmodel.ViewModelFactory(getApplication());
         viewModel = new ViewModelProvider(this, factory).get(LoginViewModel.class);
+        authViewModel = new ViewModelProvider(this, factory).get(AuthViewModel.class);
 
         initViews();
         setupObservers();
@@ -83,18 +100,25 @@ public class LoginActivity extends AppCompatActivity {
     private void initViews() {
         passwordInput = findViewById(R.id.password_input);
         confirmPasswordInput = findViewById(R.id.confirm_password_input);
+        usernameInput = findViewById(R.id.username_input);
+        displayNameInput = findViewById(R.id.display_name_input);
         passwordLayout = findViewById(R.id.password_layout);
         confirmPasswordLayout = findViewById(R.id.confirm_password_layout);
+        usernameLayout = findViewById(R.id.username_layout);
+        displayNameLayout = findViewById(R.id.display_name_layout);
         loginButton = findViewById(R.id.login_button);
         biometricButton = findViewById(R.id.biometric_button);
+        cloudLoginButton = findViewById(R.id.cloud_login_button);
         errorText = findViewById(R.id.error_text);
         titleText = findViewById(R.id.title_text);
+        switchModeText = findViewById(R.id.switch_mode_text);
         progressBar = findViewById(R.id.progress_bar);
         confirmPasswordSection = findViewById(R.id.confirm_password_section);
+        cloudLoginSection = findViewById(R.id.cloud_login_section);
     }
 
     private void setupObservers() {
-        // 观察认证状态
+        // 观察本地认证状态
         viewModel.isAuthenticated.observe(this, isAuthenticated -> {
             if (isAuthenticated) {
                 navigateToMain();
@@ -128,23 +152,61 @@ public class LoginActivity extends AppCompatActivity {
                 biometricButton.setVisibility(canUse ? View.VISIBLE : View.GONE);
             }
         });
+
+        // 观察云端认证状态
+        authViewModel.getAuthResponse().observe(this, authResponse -> {
+            if (authResponse != null) {
+                Toast.makeText(this, isRegisterMode ? "注册成功" : "登录成功", Toast.LENGTH_SHORT).show();
+                // 云端登录成功后，也需要完成本地解锁
+                if (!isInitializing) {
+                    navigateToMain();
+                }
+            }
+        });
+
+        // 观察云端认证错误
+        authViewModel.getError().observe(this, error -> {
+            if (error != null && !error.isEmpty()) {
+                showError(error);
+            }
+        });
+
+        // 观察云端加载状态
+        authViewModel.getLoading().observe(this, isLoading -> {
+            if (isLoading != null) {
+                updateLoadingState(isLoading);
+            }
+        });
     }
 
     private void setupClickListeners() {
         loginButton.setOnClickListener(v -> {
-            String password = passwordInput.getText().toString().trim();
-
-            if (isInitializing) {
-                String confirmPassword = confirmPasswordInput.getText().toString().trim();
-                viewModel.initializeWithPassword(password, confirmPassword);
+            if (isCloudLoginMode) {
+                handleCloudLogin();
             } else {
-                viewModel.loginWithPassword(password);
+                String password = passwordInput.getText().toString().trim();
+                if (isInitializing) {
+                    String confirmPassword = confirmPasswordInput.getText().toString().trim();
+                    viewModel.initializeWithPassword(password, confirmPassword);
+                } else {
+                    viewModel.loginWithPassword(password);
+                }
             }
         });
 
         biometricButton.setOnClickListener(v -> {
             performBiometricAuthentication();
         });
+
+        // 云端登录按钮
+        if (cloudLoginButton != null) {
+            cloudLoginButton.setOnClickListener(v -> toggleCloudLoginMode());
+        }
+
+        // 切换注册/登录模式
+        if (switchModeText != null) {
+            switchModeText.setOnClickListener(v -> toggleRegisterMode());
+        }
 
         // 清除错误
         passwordInput.setOnFocusChangeListener((v, hasFocus) -> {
@@ -187,6 +249,13 @@ public class LoginActivity extends AppCompatActivity {
         if (confirmPasswordInput != null) {
             confirmPasswordInput.addTextChangedListener(textWatcher);
         }
+        // 添加云端登录相关输入框的监听
+        if (usernameInput != null) {
+            usernameInput.addTextChangedListener(textWatcher);
+        }
+        if (displayNameInput != null) {
+            displayNameInput.addTextChangedListener(textWatcher);
+        }
     }
 
     private void updateUiForInitializationState(boolean initializing) {
@@ -219,17 +288,35 @@ public class LoginActivity extends AppCompatActivity {
     private void updateLoginButtonState() {
         boolean enabled = false;
 
-        if (isInitializing) {
-            String password = passwordInput.getText().toString().trim();
-            String confirmPassword = confirmPasswordInput.getText().toString().trim();
-            enabled = !TextUtils.isEmpty(password) && !TextUtils.isEmpty(confirmPassword);
+        if (isCloudLoginMode) {
+            // 云端模式
+            if (isRegisterMode) {
+                // 云端注册：需要用户名和显示名称
+                String username = usernameInput != null ? usernameInput.getText().toString().trim() : "";
+                String displayName = displayNameInput != null ? displayNameInput.getText().toString().trim() : "";
+                enabled = !TextUtils.isEmpty(username) && !TextUtils.isEmpty(displayName);
+            } else {
+                // 云端登录：总是启用（使用已保存的userId）
+                enabled = true;
+            }
         } else {
-            enabled = !TextUtils.isEmpty(passwordInput.getText().toString().trim());
+            // 本地模式
+            if (isInitializing) {
+                // 本地初始化：需要密码和确认密码
+                String password = passwordInput.getText().toString().trim();
+                String confirmPassword = confirmPasswordInput.getText().toString().trim();
+                enabled = !TextUtils.isEmpty(password) && !TextUtils.isEmpty(confirmPassword);
+            } else {
+                // 本地解锁：需要主密码
+                enabled = !TextUtils.isEmpty(passwordInput.getText().toString().trim());
+            }
         }
 
         if (loginButton != null) {
-            Boolean isLoading = viewModel.isLoading.getValue();
-            loginButton.setEnabled(enabled && (isLoading == null || !isLoading));
+            Boolean localLoading = viewModel.isLoading.getValue();
+            Boolean cloudLoading = authViewModel.getLoading().getValue();
+            boolean isLoading = (localLoading != null && localLoading) || (cloudLoading != null && cloudLoading);
+            loginButton.setEnabled(enabled && !isLoading);
         }
     }
 
@@ -444,6 +531,135 @@ public class LoginActivity extends AppCompatActivity {
         } else {
             // 否则最小化应用
             moveTaskToBack(true);
+        }
+    }
+
+    /**
+     * 切换云端登录模式
+     */
+    private void toggleCloudLoginMode() {
+        isCloudLoginMode = !isCloudLoginMode;
+        updateUiForCloudLoginMode();
+    }
+
+    /**
+     * 切换注册/登录模式
+     */
+    private void toggleRegisterMode() {
+        isRegisterMode = !isRegisterMode;
+        updateUiForRegisterMode();
+    }
+
+    /**
+     * 更新UI以显示云端登录模式
+     */
+    private void updateUiForCloudLoginMode() {
+        if (cloudLoginSection == null) return;
+
+        if (isCloudLoginMode) {
+            // 显示云端登录界面
+            cloudLoginSection.setVisibility(View.VISIBLE);
+            confirmPasswordSection.setVisibility(View.GONE);
+            biometricButton.setVisibility(View.GONE);
+
+            // 显示/隐藏用户名和密码输入框
+            if (usernameLayout != null) {
+                usernameLayout.setVisibility(isRegisterMode ? View.VISIBLE : View.GONE);
+            }
+            if (passwordLayout != null) {
+                passwordLayout.setVisibility(isRegisterMode ? View.VISIBLE : View.GONE);
+            }
+            if (displayNameLayout != null) {
+                displayNameLayout.setVisibility(isRegisterMode ? View.VISIBLE : View.GONE);
+            }
+
+            titleText.setText(isRegisterMode ? R.string.cloud_register : R.string.cloud_login);
+            loginButton.setText(isRegisterMode ? R.string.register : R.string.login);
+            cloudLoginButton.setText(R.string.local_unlock);
+            if (switchModeText != null) {
+                switchModeText.setVisibility(View.VISIBLE);
+                switchModeText.setText(isRegisterMode ? R.string.switch_to_login : R.string.switch_to_register);
+            }
+
+            // 更新按钮状态
+            updateLoginButtonState();
+        } else {
+            // 显示本地解锁界面
+            cloudLoginSection.setVisibility(View.GONE);
+            if (usernameLayout != null) usernameLayout.setVisibility(View.GONE);
+            if (displayNameLayout != null) displayNameLayout.setVisibility(View.GONE);
+            updateUiForInitializationState(isInitializing);
+            cloudLoginButton.setText(R.string.cloud_login);
+            if (switchModeText != null) {
+                switchModeText.setVisibility(View.GONE);
+            }
+            isRegisterMode = false;
+        }
+    }
+
+    /**
+     * 更新UI以显示注册/登录模式
+     */
+    private void updateUiForRegisterMode() {
+        if (!isCloudLoginMode) return;
+
+        if (isRegisterMode) {
+            // 注册模式 - 需要用户名和显示名称（不需要密码）
+            titleText.setText(R.string.cloud_register);
+            loginButton.setText(R.string.register);
+            if (usernameLayout != null) {
+                usernameLayout.setVisibility(View.VISIBLE);
+            }
+            if (displayNameLayout != null) {
+                displayNameLayout.setVisibility(View.VISIBLE);
+            }
+            if (switchModeText != null) {
+                switchModeText.setText(R.string.switch_to_login);
+            }
+        } else {
+            // 登录模式 - 只需要登录按钮（使用已注册的userId）
+            titleText.setText(R.string.cloud_login);
+            loginButton.setText(R.string.login);
+            if (usernameLayout != null) {
+                usernameLayout.setVisibility(View.GONE);
+            }
+            if (passwordLayout != null) {
+                passwordLayout.setVisibility(View.GONE);
+            }
+            if (displayNameLayout != null) {
+                displayNameLayout.setVisibility(View.GONE);
+            }
+            if (switchModeText != null) {
+                switchModeText.setText(R.string.switch_to_register);
+            }
+        }
+
+        // 更新按钮状态
+        updateLoginButtonState();
+    }
+
+    /**
+     * 处理云端登录/注册
+     */
+    private void handleCloudLogin() {
+        String username = usernameInput != null ? usernameInput.getText().toString().trim() : "";
+
+        if (username.isEmpty()) {
+            showError("用户名不能为空");
+            return;
+        }
+
+        if (isRegisterMode) {
+            // 注册 - 新架构不需要密码
+            String displayName = displayNameInput != null ? displayNameInput.getText().toString().trim() : "";
+            if (displayName.isEmpty()) {
+                showError(getString(R.string.display_name_required));
+                return;
+            }
+            authViewModel.register(username, displayName);
+        } else {
+            // 登录 - 新架构使用已注册的userId自动登录
+            authViewModel.login();
         }
     }
 }

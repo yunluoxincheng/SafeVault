@@ -1,36 +1,30 @@
 package com.ttt.safevault.ui;
 
-import android.content.Context;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import com.google.android.material.snackbar.Snackbar;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.lifecycle.ViewModelProvider;
-import androidx.navigation.NavController;
-import androidx.recyclerview.widget.LinearLayoutManager;
-import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.material.card.MaterialCardView;
 import com.google.android.material.materialswitch.MaterialSwitch;
 import com.google.android.material.slider.Slider;
 import com.google.android.material.textfield.TextInputEditText;
 import com.ttt.safevault.R;
-import com.ttt.safevault.adapter.GeneratedPasswordsAdapter;
 import com.ttt.safevault.databinding.FragmentGeneratorBinding;
 import com.ttt.safevault.viewmodel.GeneratorViewModel;
 import com.ttt.safevault.utils.ClipboardManager;
 
 /**
  * 密码生成器页面 Fragment
- * 提供独立的密码生成功能，包括实时预览、历史记录等
+ * 提供独立的密码生成功能，包括实时预览
  */
 public class GeneratorFragment extends BaseFragment {
 
@@ -45,21 +39,15 @@ public class GeneratorFragment extends BaseFragment {
     private MaterialSwitch lowercaseSwitch;
     private MaterialSwitch numbersSwitch;
     private MaterialSwitch symbolsSwitch;
-    private Button regenerateButton;
-    private Button copyButton;
-    private Button saveButton;
+    private Button generateButton;
     private MaterialCardView pinPresetCard;
     private MaterialCardView strongPresetCard;
     private MaterialCardView memorablePresetCard;
-    private RecyclerView historyRecyclerView;
-    private GeneratedPasswordsAdapter historyAdapter;
     private View strengthBar1;
     private View strengthBar2;
     private View strengthBar3;
     private View strengthBar4;
     private TextView strengthText;
-    private Button clearHistoryButton;
-    private View historyEmptyLayout;
 
     @Nullable
     @Override
@@ -86,20 +74,15 @@ public class GeneratorFragment extends BaseFragment {
         lowercaseSwitch = binding.lowercaseSwitch;
         numbersSwitch = binding.numbersSwitch;
         symbolsSwitch = binding.symbolsSwitch;
-        regenerateButton = binding.regenerateButton;
-        copyButton = binding.copyButton;
-        saveButton = binding.saveButton;
+        generateButton = binding.generateButton;
         pinPresetCard = binding.pinPresetCard;
         strongPresetCard = binding.strongPresetCard;
         memorablePresetCard = binding.memorablePresetCard;
-        historyRecyclerView = binding.historyRecyclerView;
         strengthBar1 = binding.strengthBar1;
         strengthBar2 = binding.strengthBar2;
         strengthBar3 = binding.strengthBar3;
         strengthBar4 = binding.strengthBar4;
         strengthText = binding.strengthText;
-        clearHistoryButton = binding.clearHistoryButton;
-        historyEmptyLayout = binding.historyEmptyLayout;
 
         // 设置默认值
         lengthSlider.setValue(16);
@@ -107,20 +90,6 @@ public class GeneratorFragment extends BaseFragment {
         lowercaseSwitch.setChecked(true);
         numbersSwitch.setChecked(true);
         symbolsSwitch.setChecked(false);
-
-        // 设置历史记录 RecyclerView
-        historyRecyclerView.setLayoutManager(new LinearLayoutManager(requireContext()));
-        historyAdapter = new GeneratedPasswordsAdapter(
-            password -> {
-                // 点击历史记录复制密码
-                copyToClipboard(password);
-            },
-            position -> {
-                // 删除历史记录项（可选功能，暂时不实现）
-                // viewModel.deleteFromHistory(position);
-            }
-        );
-        historyRecyclerView.setAdapter(historyAdapter);
     }
 
     private void initClipboardManager() {
@@ -141,18 +110,6 @@ public class GeneratorFragment extends BaseFragment {
         viewModel.getPasswordStrength().observe(getViewLifecycleOwner(), strength -> {
             updateStrengthIndicator(strength);
         });
-
-        // 观察历史记录
-        viewModel.getGeneratedHistory().observe(getViewLifecycleOwner(), history -> {
-            historyAdapter.submitList(history);
-
-            // 更新空状态
-            if (historyEmptyLayout != null) {
-                boolean isEmpty = history == null || history.isEmpty();
-                historyEmptyLayout.setVisibility(isEmpty ? View.VISIBLE : View.GONE);
-                historyRecyclerView.setVisibility(isEmpty ? View.GONE : View.VISIBLE);
-            }
-        });
     }
 
     private void setupClickListeners() {
@@ -169,22 +126,16 @@ public class GeneratorFragment extends BaseFragment {
         numbersSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> generatePassword());
         symbolsSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> generatePassword());
 
-        // 重新生成按钮
-        regenerateButton.setOnClickListener(v -> generatePassword());
+        // 生成按钮
+        generateButton.setOnClickListener(v -> generatePassword());
 
-        // 复制按钮
-        copyButton.setOnClickListener(v -> copyPasswordToClipboard());
-
-        // 保存按钮
-        saveButton.setOnClickListener(v -> savePassword());
+        // 点击生成的密码文本复制
+        generatedPasswordText.setOnClickListener(v -> copyPasswordToClipboard());
 
         // 预设配置
         pinPresetCard.setOnClickListener(v -> applyPreset(GeneratorViewModel.Preset.PIN));
         strongPresetCard.setOnClickListener(v -> applyPreset(GeneratorViewModel.Preset.STRONG));
         memorablePresetCard.setOnClickListener(v -> applyPreset(GeneratorViewModel.Preset.MEMORABLE));
-
-        // 清除历史
-        clearHistoryButton.setOnClickListener(v -> clearHistory());
     }
 
     private void generateInitialPassword() {
@@ -207,7 +158,6 @@ public class GeneratorFragment extends BaseFragment {
                 : "";
         if (!password.isEmpty()) {
             copyToClipboard(password);
-            viewModel.addToHistory(password);
         }
     }
 
@@ -217,18 +167,6 @@ public class GeneratorFragment extends BaseFragment {
 
         // 使用 Snackbar 显示复制成功提示
         Snackbar.make(binding.getRoot(), R.string.copied, Snackbar.LENGTH_SHORT).show();
-    }
-
-    private void savePassword() {
-        String password = generatedPasswordText.getText() != null
-                ? generatedPasswordText.getText().toString()
-                : "";
-        if (!password.isEmpty()) {
-            // TODO: 实现导航到编辑页面并传递生成的密码
-            // 暂时只复制到剪贴板
-            copyPasswordToClipboard();
-            Toast.makeText(requireContext(), "请手动粘贴到新密码项", Toast.LENGTH_LONG).show();
-        }
     }
 
     private void applyPreset(GeneratorViewModel.Preset preset) {
@@ -305,11 +243,6 @@ public class GeneratorFragment extends BaseFragment {
 
         strengthText.setText(strengthLabel);
         strengthText.setTextColor(strengthColor);
-    }
-
-    private void clearHistory() {
-        viewModel.clearHistory();
-        Toast.makeText(requireContext(), "历史记录已清除", Toast.LENGTH_SHORT).show();
     }
 
     @Override
