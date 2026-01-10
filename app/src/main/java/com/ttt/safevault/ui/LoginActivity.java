@@ -50,7 +50,9 @@ public class LoginActivity extends AppCompatActivity {
     private Button cloudLoginButton;
     private TextView errorText;
     private TextView titleText;
+    private TextView subtitleText;
     private TextView switchModeText;
+    private TextView cloudLoginHint;
     private ProgressBar progressBar;
     private View confirmPasswordSection;
     private View cloudLoginSection;
@@ -111,7 +113,9 @@ public class LoginActivity extends AppCompatActivity {
         cloudLoginButton = findViewById(R.id.cloud_login_button);
         errorText = findViewById(R.id.error_text);
         titleText = findViewById(R.id.title_text);
+        subtitleText = findViewById(R.id.subtitle_text);
         switchModeText = findViewById(R.id.switch_mode_text);
+        cloudLoginHint = findViewById(R.id.cloud_login_hint);
         progressBar = findViewById(R.id.progress_bar);
         confirmPasswordSection = findViewById(R.id.confirm_password_section);
         cloudLoginSection = findViewById(R.id.cloud_login_section);
@@ -562,18 +566,49 @@ public class LoginActivity extends AppCompatActivity {
             confirmPasswordSection.setVisibility(View.GONE);
             biometricButton.setVisibility(View.GONE);
 
-            // 显示/隐藏用户名和密码输入框
-            if (usernameLayout != null) {
-                usernameLayout.setVisibility(isRegisterMode ? View.VISIBLE : View.GONE);
-            }
-            if (passwordLayout != null) {
-                passwordLayout.setVisibility(isRegisterMode ? View.VISIBLE : View.GONE);
-            }
-            if (displayNameLayout != null) {
-                displayNameLayout.setVisibility(isRegisterMode ? View.VISIBLE : View.GONE);
+            // 根据注册/登录模式显示/隐藏用户名和密码输入框
+            // 在云端登录模式下，passwordLayout 不在 cloudLoginSection 内，需要单独处理
+            if (isRegisterMode) {
+                // 注册模式：显示用户名、显示名称和密码输入框
+                if (usernameLayout != null) {
+                    usernameLayout.setVisibility(View.VISIBLE);
+                }
+                if (displayNameLayout != null) {
+                    displayNameLayout.setVisibility(View.VISIBLE);
+                }
+                if (passwordLayout != null) {
+                    passwordLayout.setVisibility(View.VISIBLE);
+                }
+                // 隐藏提示文本
+                if (cloudLoginHint != null) {
+                    cloudLoginHint.setVisibility(View.GONE);
+                }
+            } else {
+                // 登录模式：显示用户名输入框（支持多账号切换）
+                // 隐藏显示名称和密码输入框
+                if (cloudLoginHint != null) {
+                    cloudLoginHint.setVisibility(View.GONE);
+                }
+                if (usernameLayout != null) {
+                    usernameLayout.setVisibility(View.VISIBLE);
+                }
+                if (displayNameLayout != null) {
+                    displayNameLayout.setVisibility(View.GONE);
+                }
+                if (passwordLayout != null) {
+                    passwordLayout.setVisibility(View.GONE);
+                }
             }
 
             titleText.setText(isRegisterMode ? R.string.cloud_register : R.string.cloud_login);
+            // 更新副标题
+            if (subtitleText != null) {
+                if (isRegisterMode) {
+                    subtitleText.setText("创建云端账号");
+                } else {
+                    subtitleText.setText("输入用户名登录");
+                }
+            }
             loginButton.setText(isRegisterMode ? R.string.register : R.string.login);
             cloudLoginButton.setText(R.string.local_unlock);
             if (switchModeText != null) {
@@ -588,12 +623,20 @@ public class LoginActivity extends AppCompatActivity {
             cloudLoginSection.setVisibility(View.GONE);
             if (usernameLayout != null) usernameLayout.setVisibility(View.GONE);
             if (displayNameLayout != null) displayNameLayout.setVisibility(View.GONE);
+            // 确保 passwordLayout 可见（本地模式总是需要密码输入）
+            if (passwordLayout != null) {
+                passwordLayout.setVisibility(View.VISIBLE);
+            }
             updateUiForInitializationState(isInitializing);
             cloudLoginButton.setText(R.string.cloud_login);
             if (switchModeText != null) {
                 switchModeText.setVisibility(View.GONE);
             }
-            isRegisterMode = false;
+            // 恢复副标题
+            if (subtitleText != null) {
+                subtitleText.setText(R.string.enter_master_password);
+            }
+            // 注意：不要重置 isRegisterMode，这样当用户再次切换回云端模式时能恢复之前的状态
         }
     }
 
@@ -604,8 +647,12 @@ public class LoginActivity extends AppCompatActivity {
         if (!isCloudLoginMode) return;
 
         if (isRegisterMode) {
-            // 注册模式 - 需要用户名和显示名称（不需要密码）
+            // 注册模式 - 需要用户名、显示名称和密码
             titleText.setText(R.string.cloud_register);
+            // 更新副标题
+            if (subtitleText != null) {
+                subtitleText.setText("创建云端账号");
+            }
             loginButton.setText(R.string.register);
             if (usernameLayout != null) {
                 usernameLayout.setVisibility(View.VISIBLE);
@@ -613,21 +660,36 @@ public class LoginActivity extends AppCompatActivity {
             if (displayNameLayout != null) {
                 displayNameLayout.setVisibility(View.VISIBLE);
             }
+            if (passwordLayout != null) {
+                passwordLayout.setVisibility(View.VISIBLE);
+            }
+            // 隐藏提示文本
+            if (cloudLoginHint != null) {
+                cloudLoginHint.setVisibility(View.GONE);
+            }
             if (switchModeText != null) {
                 switchModeText.setText(R.string.switch_to_login);
             }
         } else {
-            // 登录模式 - 只需要登录按钮（使用已注册的userId）
+            // 登录模式 - 需要用户名输入框（支持多账号切换）
             titleText.setText(R.string.cloud_login);
+            // 更新副标题
+            if (subtitleText != null) {
+                subtitleText.setText("输入用户名登录");
+            }
             loginButton.setText(R.string.login);
             if (usernameLayout != null) {
-                usernameLayout.setVisibility(View.GONE);
+                usernameLayout.setVisibility(View.VISIBLE);
             }
             if (passwordLayout != null) {
                 passwordLayout.setVisibility(View.GONE);
             }
             if (displayNameLayout != null) {
                 displayNameLayout.setVisibility(View.GONE);
+            }
+            // 隐藏提示文本
+            if (cloudLoginHint != null) {
+                cloudLoginHint.setVisibility(View.GONE);
             }
             if (switchModeText != null) {
                 switchModeText.setText(R.string.switch_to_register);
@@ -642,6 +704,7 @@ public class LoginActivity extends AppCompatActivity {
      * 处理云端登录/注册
      */
     private void handleCloudLogin() {
+        // 获取用户名
         String username = usernameInput != null ? usernameInput.getText().toString().trim() : "";
 
         if (username.isEmpty()) {
@@ -650,7 +713,7 @@ public class LoginActivity extends AppCompatActivity {
         }
 
         if (isRegisterMode) {
-            // 注册 - 新架构不需要密码
+            // 注册模式 - 需要显示名称
             String displayName = displayNameInput != null ? displayNameInput.getText().toString().trim() : "";
             if (displayName.isEmpty()) {
                 showError(getString(R.string.display_name_required));
@@ -658,8 +721,8 @@ public class LoginActivity extends AppCompatActivity {
             }
             authViewModel.register(username, displayName);
         } else {
-            // 登录 - 新架构使用已注册的userId自动登录
-            authViewModel.login();
+            // 登录模式 - 使用用户名登录
+            authViewModel.loginWithUsername(username);
         }
     }
 }

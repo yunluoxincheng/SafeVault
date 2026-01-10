@@ -50,11 +50,10 @@
     <!-- 密码输入框容器 -->
     <com.google.android.material.card.MaterialCardView
         android:id="@+id/password_card"
+        style="@style/Widget.Material3.CardView.Modern"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginTop="40dp"
-        app:cardCornerRadius="12dp"
-        app:cardElevation="4dp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/subtitle_text">
@@ -62,17 +61,15 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:padding="16dp">
+            android:orientation="vertical">
 
             <!-- 密码输入框 -->
             <com.google.android.material.textfield.TextInputLayout
                 android:id="@+id/password_layout"
-                style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                style="@style/Widget.Material3.TextInputLayout.OutlinedBox.Modern.Password"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:hint="@string/master_password"
-                app:endIconMode="password_toggle">
+                android:hint="@string/master_password">
 
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/password_input"
@@ -94,11 +91,10 @@
 
                 <com.google.android.material.textfield.TextInputLayout
                     android:id="@+id/confirm_password_layout"
-                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox.Modern.Password"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:hint="@string/confirm_master_password"
-                    app:endIconMode="password_toggle">
+                    android:hint="@string/confirm_master_password">
 
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/confirm_password_input"
@@ -120,13 +116,26 @@
                 android:orientation="vertical"
                 android:visibility="gone">
 
+                <!-- 云端登录提示文本（登录模式显示） -->
+                <TextView
+                    android:id="@+id/cloud_login_hint"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="将使用已保存的云端账号直接登录"
+                    android:textAppearance="?attr/textAppearanceBodyMedium"
+                    android:textColor="?attr/colorOnSurfaceVariant"
+                    android:gravity="center"
+                    android:padding="16dp"
+                    android:visibility="gone" />
+
                 <!-- 用户名输入框 -->
                 <com.google.android.material.textfield.TextInputLayout
                     android:id="@+id/username_layout"
-                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox.Modern"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:hint="@string/username">
+                    android:hint="@string/username"
+                    android:visibility="gone">
 
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/username_input"
@@ -140,7 +149,7 @@
                 <!-- 显示名称输入框（仅注册时显示） -->
                 <com.google.android.material.textfield.TextInputLayout
                     android:id="@+id/display_name_layout"
-                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox.Modern"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="16dp"
@@ -180,12 +189,12 @@
     <!-- 登录/初始化按钮 -->
     <com.google.android.material.button.MaterialButton
         android:id="@+id/login_button"
+        style="@style/Widget.Material3.Button.Modern"
         android:layout_width="0dp"
-        android:layout_height="60dp"
+        android:layout_height="56dp"
         android:layout_marginTop="24dp"
         android:enabled="false"
         android:text="@string/unlock"
-        android:textSize="16sp"
         app:layout_constraintEnd_toEndOf="@id/password_card"
         app:layout_constraintStart_toStartOf="@id/password_card"
         app:layout_constraintTop_toBottomOf="@id/error_text" />
@@ -193,15 +202,13 @@
     <!-- 生物识别按钮 -->
     <com.google.android.material.button.MaterialButton
         android:id="@+id/biometric_button"
-        style="@style/Widget.Material3.Button.OutlinedButton"
+        style="@style/Widget.Material3.Button.OutlinedButton.Modern"
         android:layout_width="0dp"
-        android:layout_height="60dp"
+        android:layout_height="56dp"
         android:layout_marginTop="12dp"
         android:text="@string/use_biometric"
-        android:textSize="16sp"
         android:visibility="gone"
         app:icon="@drawable/ic_fingerprint"
-        app:iconGravity="textStart"
         app:layout_constraintEnd_toEndOf="@id/login_button"
         app:layout_constraintStart_toStartOf="@id/login_button"
         app:layout_constraintTop_toBottomOf="@id/login_button" />
@@ -209,9 +216,9 @@
     <!-- 云端登录按钮 -->
     <com.google.android.material.button.MaterialButton
         android:id="@+id/cloud_login_button"
-        style="@style/Widget.Material3.Button.TextButton"
+        style="@style/Widget.Material3.Button.TextButton.Modern"
         android:layout_width="0dp"
-        android:layout_height="wrap_content"
+        android:layout_height="48dp"
         android:layout_marginTop="12dp"
         android:text="@string/cloud_login"
         app:layout_constraintEnd_toEndOf="@id/login_button"

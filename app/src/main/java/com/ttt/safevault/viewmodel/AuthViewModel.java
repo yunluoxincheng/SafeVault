@@ -133,6 +133,45 @@ public class AuthViewModel extends AndroidViewModel {
     }
 
     /**
+     * 通过用户名登录
+     */
+    public void loginWithUsername(String username) {
+        loadingLiveData.setValue(true);
+
+        // 获取设备ID
+        String deviceId = keyManager.getDeviceId();
+        if (deviceId == null) {
+            loadingLiveData.setValue(false);
+            errorLiveData.setValue("设备ID获取失败");
+            return;
+        }
+
+        // 生成签名（简化版本）
+        String signature = generateSignature(username, deviceId);
+
+        Disposable disposable = retrofitClient.getAuthServiceApi()
+            .loginByUsername(new com.ttt.safevault.dto.request.LoginByUsernameRequest(username, deviceId, signature))
+            .subscribeOn(Schedulers.io())
+            .observeOn(AndroidSchedulers.mainThread())
+            .subscribe(
+                response -> {
+                    loadingLiveData.setValue(false);
+                    tokenManager.saveTokens(response);
+                    authResponseLiveData.setValue(response);
+                    Log.d(TAG, "Login by username success: " + response.getUserId());
+                },
+                error -> {
+                    loadingLiveData.setValue(false);
+                    String message = "登录失败: " + error.getMessage();
+                    errorLiveData.setValue(message);
+                    Log.e(TAG, "Login by username failed", error);
+                }
+            );
+
+        disposables.add(disposable);
+    }
+
+    /**
      * 生成签名（简化版本）
      * 生产环境应该使用RSA私钥签名
      */

@@ -105,4 +105,7 @@
     <color name="zxing_custom_result_view">#B0000000</color>
     <color name="zxing_custom_viewfinder_laser">#FF6750A4</color>
     <color name="zxing_custom_viewfinder_mask">#60000000</color>
+
+    <!-- Splash Screen 背景颜色 -->
+    <color name="splash_screen_background">#FFFFFFFF</color>
 </resources>

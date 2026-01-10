@@ -33,11 +33,10 @@
 
             <!-- 分享选项 -->
             <com.google.android.material.card.MaterialCardView
+                style="@style/Widget.Material3.CardView.Modern.Flat"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="16dp"
-                app:cardElevation="2dp"
-                app:cardCornerRadius="12dp">
+                android:layout_marginBottom="16dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -89,11 +88,10 @@
 
             <!-- 传输方式选择 -->
             <com.google.android.material.card.MaterialCardView
+                style="@style/Widget.Material3.CardView.Modern.Flat"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="16dp"
-                app:cardElevation="2dp"
-                app:cardCornerRadius="12dp">
+                android:layout_marginBottom="16dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -185,11 +183,10 @@
                 android:visibility="gone">
 
                 <com.google.android.material.card.MaterialCardView
+                    style="@style/Widget.Material3.CardView.Modern.Flat"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginBottom="16dp"
-                    app:cardElevation="2dp"
-                    app:cardCornerRadius="12dp">
+                    android:layout_marginBottom="16dp">
 
                     <LinearLayout
                         android:layout_width="match_parent"
@@ -208,11 +205,11 @@
                         <!-- 用户ID输入框 -->
                         <com.google.android.material.textfield.TextInputLayout
                             android:id="@+id/userIdInputLayout"
+                            style="@style/Widget.Material3.TextInputLayout.OutlinedBox.Modern.Compact"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:hint="@string/target_user_id"
-                            android:visibility="gone"
-                            style="@style/Widget.Material3.TextInputLayout.OutlinedBox">
+                            android:visibility="gone">
 
                             <com.google.android.material.textfield.TextInputEditText
                                 android:id="@+id/userIdInput"
@@ -238,21 +235,19 @@
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnCancel"
+                    style="@style/Widget.Material3.Button.OutlinedButton.Modern.Small"
                     android:layout_width="0dp"
-                    android:layout_height="52dp"
+                    android:layout_height="48dp"
                     android:layout_weight="1"
                     android:text="@string/cancel"
                     android:layout_marginEnd="8dp"
-                    style="@style/Widget.Material3.Button.OutlinedButton.HighContrast"
-                    app:icon="@drawable/ic_close"
-                    app:iconGravity="textStart"
-                    app:iconPadding="8dp"
-                    app:iconTint="?attr/colorPrimary" />
+                    app:icon="@drawable/ic_close" />
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnShare"
+                    style="@style/Widget.Material3.Button.Modern"
                     android:layout_width="0dp"
-                    android:layout_height="wrap_content"
+                    android:layout_height="56dp"
                     android:layout_weight="1"
                     android:text="@string/share"
                     android:layout_marginStart="8dp" />

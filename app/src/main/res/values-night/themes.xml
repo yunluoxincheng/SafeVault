@@ -46,11 +46,31 @@
 
         <!-- Window background -->
         <item name="android:windowBackground">@color/md_theme_dark_background</item>
+    </style>
 
-        <!-- Splash Screen 配置 (深色模式) -->
+    <style name="Theme.SafeVault" parent="Base.Theme.SafeVault">
+        <!-- Splash Screen 配置 (跟随系统) -->
         <item name="android:windowSplashScreenAnimatedIcon">@mipmap/ic_launcher_foreground</item>
-        <item name="android:windowSplashScreenBackground">@color/md_theme_dark_surface</item>
+        <item name="android:windowSplashScreenBackground">@color/splash_screen_background</item>
         <item name="android:windowSplashScreenAnimationDuration">1000</item>
+
+        <!-- 现代化形状配置 -->
+        <item name="shapeAppearanceSmallComponent">@style/ShapeAppearance.SafeVault.SmallComponent</item>
+        <item name="shapeAppearanceMediumComponent">@style/ShapeAppearance.SafeVault.MediumComponent</item>
+        <item name="shapeAppearanceLargeComponent">@style/ShapeAppearance.SafeVault.LargeComponent</item>
+    </style>
+
+    <!-- 现代化圆角形状 -->
+    <style name="ShapeAppearance.SafeVault.SmallComponent" parent="ShapeAppearance.Material3.SmallComponent">
+        <item name="cornerSize">12dp</item>
+    </style>
+
+    <style name="ShapeAppearance.SafeVault.MediumComponent" parent="ShapeAppearance.Material3.MediumComponent">
+        <item name="cornerSize">16dp</item>
+    </style>
+
+    <style name="ShapeAppearance.SafeVault.LargeComponent" parent="ShapeAppearance.Material3.LargeComponent">
+        <item name="cornerSize">20dp</item>
     </style>
 
     <!-- 优化的按钮样式 - 确保良好的对比度（深色模式） -->
