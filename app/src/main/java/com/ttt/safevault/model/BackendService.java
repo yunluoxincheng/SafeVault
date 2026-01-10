@@ -129,6 +129,12 @@ public interface BackendService {
     void recordBackgroundTime();
 
     /**
+     * 清除后台时间记录
+     * 登录成功后应调用此方法，避免刚登录就被自动锁定
+     */
+    void clearBackgroundTime();
+
+    /**
      * 获取后台时间戳
      * @return 进入后台的时间戳
      */
@@ -297,29 +303,21 @@ public interface BackendService {
 
     /**
      * 创建离线分享（用于二维码离线传输）
+     * 注意：分享前应验证用户身份（生物识别或主密码）
      * @param passwordId 要分享的密码ID
-     * @param sharePassword 分享密码（用于加密）
      * @param expireInMinutes 过期时间（分钟），0表示永不过期
      * @param permission 分享权限
-     * @return 二维码内容（包含加密数据），失败返回null
+     * @return 二维码内容（包含加密数据和嵌入密钥），失败返回null
      */
-    String createOfflineShare(int passwordId, String sharePassword,
+    String createOfflineShare(int passwordId,
                              int expireInMinutes, SharePermission permission);
 
     /**
      * 接收离线分享（从二维码解析）
      * @param qrContent 二维码内容
-     * @param sharePassword 分享密码
      * @return 解密后的密码数据，失败返回null
      */
-    PasswordItem receiveOfflineShare(String qrContent, String sharePassword);
-
-    /**
-     * 生成随机分享密码
-     * @param length 密码长度
-     * @return 随机分享密码
-     */
-    String generateSharePassword(int length);
+    PasswordItem receiveOfflineShare(String qrContent);
 
     // ========== 新增：云端分享接口（后端API集成）==========
 

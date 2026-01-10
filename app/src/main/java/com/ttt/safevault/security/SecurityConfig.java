@@ -198,6 +198,18 @@ public class SecurityConfig {
     }
 
     /**
+     * 允许截图设置（与截图保护相反）
+     * 默认为 false（不允许截图），即启用截图保护
+     */
+    public boolean isScreenshotAllowed() {
+        return !isScreenshotProtectionEnabled();
+    }
+
+    public void setScreenshotAllowed(boolean allowed) {
+        setScreenshotProtectionEnabled(!allowed);
+    }
+
+    /**
      * 重置所有设置为默认值
      */
     public void resetToDefaults() {

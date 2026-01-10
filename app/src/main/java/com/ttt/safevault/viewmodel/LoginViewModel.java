@@ -83,6 +83,8 @@ public class LoginViewModel extends AndroidViewModel {
             try {
                 boolean success = backendService.unlock(password);
                 if (success) {
+                    // 登录成功后清除后台时间记录，避免刚登录就被自动锁定
+                    backendService.clearBackgroundTime();
                     _isAuthenticated.postValue(true);
                 } else {
                     _errorMessage.postValue("密码错误，请重试");
@@ -113,6 +115,8 @@ public class LoginViewModel extends AndroidViewModel {
             try {
                 boolean success = backendService.initialize(password);
                 if (success) {
+                    // 初始化成功后清除后台时间记录
+                    backendService.clearBackgroundTime();
                     _isInitialized.postValue(true);
                     _isAuthenticated.postValue(true);
                 } else {
@@ -132,21 +136,23 @@ public class LoginViewModel extends AndroidViewModel {
     public void loginWithBiometric() {
         _isLoading.setValue(true);
         _errorMessage.setValue(null);
-        
+
         executor.execute(() -> {
             try {
                 // 通过BackendService验证是否可以使用生物识别
                 boolean canUseBiometric = backendService.canUseBiometricAuthentication();
-                
+
                 if (!canUseBiometric) {
                     _errorMessage.postValue("生物识别认证未启用或不可用");
                     _isLoading.postValue(false);
                     return;
                 }
-                
+
                 // 生物识别验证成功，调用后端解锁
                 boolean unlocked = backendService.unlockWithBiometric();
                 if (unlocked) {
+                    // 生物识别解锁成功后清除后台时间记录
+                    backendService.clearBackgroundTime();
                     _isAuthenticated.postValue(true);
                 } else {
                     _errorMessage.postValue("生物识别解锁失败，请用主密码重试");

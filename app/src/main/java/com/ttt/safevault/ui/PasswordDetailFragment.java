@@ -217,8 +217,19 @@ public class PasswordDetailFragment extends Fragment {
             usernameCard.setVisibility(View.GONE);
         }
 
-        // 密码（总是显示，但内容可能隐藏）
-        passwordText.setText(item.getPassword());
+        // 密码 - 根据当前可见性状态显示
+        Boolean isVisible = viewModel.isPasswordVisible.getValue();
+        if (isVisible != null && isVisible) {
+            passwordText.setText(item.getPassword());
+        } else {
+            // 默认隐藏密码，显示遮罩
+            String password = item.getPassword();
+            StringBuilder masked = new StringBuilder();
+            for (int i = 0; i < password.length(); i++) {
+                masked.append("•");
+            }
+            passwordText.setText(masked.toString());
+        }
 
         // URL
         if (!TextUtils.isEmpty(item.getUrl())) {

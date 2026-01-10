@@ -235,8 +235,8 @@ public class SafeVaultAutofillService extends AutofillService {
                 }
             }
 
-            // 创建Intent启动保存Activity
-            Intent saveIntent = new Intent(this, AutofillSaveActivity.class);
+            // 创建Intent启动认证Activity（会检查锁定状态，如果锁定则先登录）
+            Intent saveIntent = new Intent(this, com.ttt.safevault.ui.autofill.AutofillSaveAuthActivity.class);
             saveIntent.putExtra("username", username);
             saveIntent.putExtra("password", password);
             saveIntent.putExtra("domain", parsedData.getDomain());

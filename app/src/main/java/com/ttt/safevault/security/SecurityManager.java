@@ -87,12 +87,22 @@ public class SecurityManager implements LifecycleObserver {
 
     /**
      * 防止截图和录屏
+     * 根据 SecurityConfig 中的设置决定是否启用截图保护
      */
     public void preventScreenshots(@NonNull Activity activity) {
-        activity.getWindow().addFlags(
-                WindowManager.LayoutParams.FLAG_SECURE |
-                WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
-        );
+        SecurityConfig config = new SecurityConfig(context);
+        boolean screenshotProtectionEnabled = config.isScreenshotProtectionEnabled();
+
+        // 如果启用了截图保护（不允许截图），则添加 FLAG_SECURE 标志
+        if (screenshotProtectionEnabled) {
+            activity.getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE);
+        } else {
+            // 如果允许截图，则清除 FLAG_SECURE 标志
+            activity.getWindow().clearFlags(WindowManager.LayoutParams.FLAG_SECURE);
+        }
+
+        // 始终保持屏幕常亮
+        activity.getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
         // 如果是敏感页面，可以添加更多保护
         if (isSensitiveActivity(activity)) {

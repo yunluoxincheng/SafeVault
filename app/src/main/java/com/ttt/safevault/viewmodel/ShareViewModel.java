@@ -116,12 +116,12 @@ public class ShareViewModel extends AndroidViewModel {
     }
 
     /**
-     * 创建离线分享（二维码传输）
+     * 创建离线分享（二维码传输，版本2：扫码直接访问）
      * @param passwordId 密码ID
      * @param expireInMinutes 过期时间（分钟）
      * @param permission 分享权限
      */
-    public void createOfflineShare(int passwordId, int expireInMinutes, 
+    public void createOfflineShare(int passwordId, int expireInMinutes,
                                   SharePermission permission) {
         _isLoading.setValue(true);
         _errorMessage.setValue(null);
@@ -130,18 +130,16 @@ public class ShareViewModel extends AndroidViewModel {
 
         executor.execute(() -> {
             try {
-                // 生成随机分享密码
-                String password = backendService.generateSharePassword(8);
-                _sharePassword.postValue(password);
-                
-                // 创建离线分享
+                // 创建离线分享（版本2：密钥已嵌入，无需密码）
                 String qrContent = backendService.createOfflineShare(
-                    passwordId, password, expireInMinutes, permission
+                    passwordId, expireInMinutes, permission
                 );
-                
+
                 if (qrContent != null && !qrContent.isEmpty()) {
                     _shareResult.postValue(qrContent);
                     _shareSuccess.postValue(true);
+                    // 版本2不需要分享密码
+                    _sharePassword.postValue(null);
                 } else {
                     _errorMessage.postValue("创建离线分享失败");
                 }

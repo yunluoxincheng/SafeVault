@@ -5,18 +5,23 @@ import android.os.Bundle;
 import android.view.View;
 import android.widget.ArrayAdapter;
 import android.widget.AutoCompleteTextView;
+import android.widget.EditText;
 import android.widget.Toast;
 
 import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.lifecycle.ViewModelProvider;
 
 import com.google.android.material.chip.Chip;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.ttt.safevault.R;
 import com.ttt.safevault.ServiceLocator;
 import com.ttt.safevault.databinding.ActivityShareBinding;
+import com.ttt.safevault.model.BackendService;
 import com.ttt.safevault.model.SharePermission;
 import com.ttt.safevault.network.TokenManager;
+import com.ttt.safevault.security.BiometricAuthHelper;
 import com.ttt.safevault.viewmodel.ShareViewModel;
 import com.ttt.safevault.viewmodel.ViewModelFactory;
 
@@ -26,12 +31,15 @@ import java.util.List;
 /**
  * 密码分享配置界面
  * 支持离线分享和云端分享
+ * 分享前需要验证用户身份（生物识别或主密码）
  */
 public class ShareActivity extends AppCompatActivity {
 
     private ActivityShareBinding binding;
     private ShareViewModel viewModel;
     private TokenManager tokenManager;
+    private BackendService backendService;
+    private BiometricAuthHelper biometricAuthHelper;
     private int passwordId;
 
     // 传输方式
@@ -56,12 +64,14 @@ public class ShareActivity extends AppCompatActivity {
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        
+
         binding = ActivityShareBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
 
-        // 初始化TokenManager
+        // 初始化服务
         tokenManager = TokenManager.getInstance(this);
+        backendService = ServiceLocator.getInstance().getBackendService();
+        biometricAuthHelper = new BiometricAuthHelper(this);
 
         // 获取要分享的密码ID
         passwordId = getIntent().getIntExtra("PASSWORD_ID", -1);
@@ -80,10 +90,10 @@ public class ShareActivity extends AppCompatActivity {
     private void setupViewModel() {
         ViewModelFactory factory = new ViewModelFactory(
             getApplication(),
-            ServiceLocator.getInstance().getBackendService()
+            backendService
         );
         viewModel = new ViewModelProvider(this, factory).get(ShareViewModel.class);
-        
+
         // 加载密码信息
         viewModel.loadPasswordItem(passwordId);
     }
@@ -179,22 +189,18 @@ public class ShareActivity extends AppCompatActivity {
                         intent.putExtra("SHARE_TOKEN", shareToken);
                         intent.putExtra("PASSWORD_ID", passwordId);
                         intent.putExtra("TRANSMISSION_METHOD", selectedTransmissionMethod.name());
-                        
-                        // 如果是离线分享，传递分享密码
+
+                        // 离线分享不再需要分享密码
                         boolean isOfflineShare = selectedTransmissionMethod == TransmissionMethod.QR_CODE
                                 || selectedTransmissionMethod == TransmissionMethod.BLUETOOTH
                                 || selectedTransmissionMethod == TransmissionMethod.NFC;
                         if (isOfflineShare) {
                             intent.putExtra("IS_OFFLINE_SHARE", true);
-                            String sharePassword = viewModel.sharePassword.getValue();
-                            if (sharePassword != null) {
-                                intent.putExtra("SHARE_PASSWORD", sharePassword);
-                            }
                         } else {
                             // 云端分享，传递shareId
                             intent.putExtra("IS_CLOUD_SHARE", true);
                         }
-                        
+
                         startActivity(intent);
                         finish();
                     }
@@ -204,6 +210,125 @@ public class ShareActivity extends AppCompatActivity {
     }
 
     private void createShare() {
+        // 分享前需要验证用户身份
+        authenticateAndShare();
+    }
+
+    /**
+     * 验证用户身份后执行分享
+     */
+    private void authenticateAndShare() {
+        // 检查是否可以使用生物识别
+        boolean canUseBiometric = BiometricAuthHelper.isBiometricSupported(this)
+                && backendService.canUseBiometricAuthentication();
+
+        if (canUseBiometric) {
+            // 使用生物识别验证
+            showBiometricAuthAndShare();
+        } else {
+            // 使用主密码验证
+            showPasswordAuthAndShare();
+        }
+    }
+
+    /**
+     * 使用生物识别验证
+     */
+    private void showBiometricAuthAndShare() {
+        biometricAuthHelper.authenticate(new BiometricAuthHelper.BiometricAuthCallback() {
+            @Override
+            public void onSuccess() {
+                // 生物识别验证成功，执行分享
+                runOnUiThread(() -> performShare());
+            }
+
+            @Override
+            public void onFailure(String error) {
+                runOnUiThread(() -> {
+                    Toast.makeText(ShareActivity.this,
+                        "生物识别验证失败: " + error, Toast.LENGTH_SHORT).show();
+                    // 验证失败，尝试使用主密码
+                    showPasswordAuthAndShare();
+                });
+            }
+
+            @Override
+            public void onCancel() {
+                // 用户取消生物识别，不执行任何操作
+                runOnUiThread(() ->
+                    Toast.makeText(ShareActivity.this, "已取消分享", Toast.LENGTH_SHORT).show()
+                );
+            }
+        });
+    }
+
+    /**
+     * 使用主密码验证
+     */
+    private void showPasswordAuthAndShare() {
+        // 使用自定义布局，包含密码可见性切换
+        android.view.View dialogView = getLayoutInflater().inflate(R.layout.dialog_password_input, null);
+        com.google.android.material.textfield.TextInputLayout passwordLayout =
+            dialogView.findViewById(R.id.passwordLayout);
+        com.google.android.material.textfield.TextInputEditText passwordInput =
+            dialogView.findViewById(R.id.passwordInput);
+
+        // 确保初始状态正确：密码隐藏，闭眼图标
+        passwordInput.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        passwordLayout.setEndIconDrawable(getDrawable(R.drawable.ic_visibility));
+
+        // 设置密码可见性切换
+        passwordLayout.setEndIconOnClickListener(v -> {
+            // 切换密码可见性
+            int selection = passwordInput.getSelectionEnd();
+            int currentInputType = passwordInput.getInputType();
+            int variation = currentInputType & android.text.InputType.TYPE_MASK_VARIATION;
+
+            if (variation == android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD) {
+                // 当前是密码状态，切换为可见
+                passwordInput.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD);
+                passwordLayout.setEndIconDrawable(getDrawable(R.drawable.ic_visibility_off));
+            } else {
+                // 当前是可见状态，切换为密码
+                passwordInput.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
+                passwordLayout.setEndIconDrawable(getDrawable(R.drawable.ic_visibility));
+            }
+            // 保持光标位置
+            passwordInput.setSelection(selection);
+        });
+
+        new MaterialAlertDialogBuilder(this)
+            .setTitle("验证身份")
+            .setMessage("请输入主密码以验证身份")
+            .setView(dialogView)
+            .setPositiveButton("确认", (dialog, which) -> {
+                String password = passwordInput.getText().toString();
+                if (password.isEmpty()) {
+                    Toast.makeText(this, "请输入密码", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+
+                // 在后台线程验证密码
+                new Thread(() -> {
+                    boolean verified = backendService.unlock(password);
+                    runOnUiThread(() -> {
+                        if (verified) {
+                            performShare();
+                        } else {
+                            Toast.makeText(this, "密码错误", Toast.LENGTH_SHORT).show();
+                        }
+                    });
+                }).start();
+            })
+            .setNegativeButton("取消", null)
+            .setCancelable(false)
+            .show();
+    }
+
+    /**
+     * 执行实际的分享操作
+     */
+    private void performShare() {
         // 获取选择的过期时间
         String selectedExpireTime = binding.autoCompleteExpireTime.getText().toString();
         int expireInMinutes = getExpireTimeValue(selectedExpireTime);

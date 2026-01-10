@@ -110,6 +110,11 @@ public class EditPasswordFragment extends Fragment {
         loadingOverlay = view.findViewById(R.id.loading_overlay);
         progressIndicator = view.findViewById(R.id.progress_indicator);
         saveButton = view.findViewById(R.id.btn_save);
+
+        // 设置密码输入框默认图标为闭眼
+        if (passwordLayout != null) {
+            passwordLayout.setEndIconDrawable(R.drawable.ic_visibility);
+        }
     }
 
     private void initViewModel() {
@@ -352,13 +357,13 @@ public class EditPasswordFragment extends Fragment {
             // 显示密码
             passwordText.setInputType(android.text.InputType.TYPE_CLASS_TEXT |
                     android.text.InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD);
-            passwordLayout.setEndIconDrawable(R.drawable.ic_visibility);
+            passwordLayout.setEndIconDrawable(R.drawable.ic_visibility_off);
             passwordLayout.setEndIconContentDescription(getString(R.string.hide_password));
         } else {
             // 隐藏密码
             passwordText.setInputType(android.text.InputType.TYPE_CLASS_TEXT |
                     android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
-            passwordLayout.setEndIconDrawable(R.drawable.ic_visibility_off);
+            passwordLayout.setEndIconDrawable(R.drawable.ic_visibility);
             passwordLayout.setEndIconContentDescription(getString(R.string.show_password));
         }
 

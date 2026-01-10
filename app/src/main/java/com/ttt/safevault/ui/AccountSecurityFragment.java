@@ -1,10 +1,7 @@
 package com.ttt.safevault.ui;
 
-import android.app.AlertDialog;
 import android.os.Bundle;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
-import android.text.InputType;
-import android.widget.EditText;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -50,6 +47,9 @@ public class AccountSecurityFragment extends BaseFragment {
 
         // 生物识别开关状态
         binding.switchBiometric.setChecked(securityConfig.isBiometricEnabled());
+
+        // 允许截图开关状态
+        binding.switchScreenshot.setChecked(securityConfig.isScreenshotAllowed());
 
         // PIN码状态
         if (securityConfig.isPinCodeEnabled()) {
@@ -100,6 +100,47 @@ public class AccountSecurityFragment extends BaseFragment {
                 binding.switchBiometric.setChecked(false);
                 securityConfig.setBiometricEnabled(false);
                 Toast.makeText(requireContext(), "生物识别已禁用", Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        // 允许截图开关 - 使用点击监听器
+        binding.switchScreenshot.setOnClickListener(v -> {
+            boolean newState = binding.switchScreenshot.isChecked();
+
+            if (newState) {
+                // 用户想要开启截图（点击后状态变为true）
+                // 先将开关恢复为关闭状态，等待验证成功后再开启
+                binding.switchScreenshot.setChecked(false);
+
+                // 启用截图前要求用户验证身份并确认
+                new MaterialAlertDialogBuilder(requireContext())
+                        .setTitle(R.string.enable_screenshot_confirm)
+                        .setMessage(R.string.enable_screenshot_message)
+                        .setPositiveButton("验证并启用", (dialog, which) -> {
+                            // 验证身份
+                            promptUserAuthentication(() -> {
+                                // 验证成功，启用截图
+                                binding.switchScreenshot.setChecked(true);
+                                securityConfig.setScreenshotAllowed(true);
+                                Toast.makeText(requireContext(), R.string.screenshot_enabled, Toast.LENGTH_SHORT).show();
+                                // 应用设置到所有Activity
+                                applyScreenshotSettings();
+                            }, () -> {
+                                // 验证失败，保持开关关闭状态
+                                binding.switchScreenshot.setChecked(false);
+                            });
+                        })
+                        .setNegativeButton(R.string.cancel, (dialog, which) -> {
+                            binding.switchScreenshot.setChecked(false);
+                        })
+                        .show();
+            } else {
+                // 用户想要关闭截图（点击后状态变为false）- 直接关闭，不需要验证
+                binding.switchScreenshot.setChecked(false);
+                securityConfig.setScreenshotAllowed(false);
+                Toast.makeText(requireContext(), R.string.screenshot_disabled, Toast.LENGTH_SHORT).show();
+                // 应用设置到所有Activity
+                applyScreenshotSettings();
             }
         });
 
@@ -154,7 +195,7 @@ public class AccountSecurityFragment extends BaseFragment {
     private void showPinCodeOptionsDialog() {
         String[] options = {"更改PIN码", "移除PIN码"};
 
-        new AlertDialog.Builder(requireContext())
+        new MaterialAlertDialogBuilder(requireContext())
                 .setTitle("PIN码选项")
                 .setItems(options, (dialog, which) -> {
                     if (which == 0) {
@@ -170,7 +211,7 @@ public class AccountSecurityFragment extends BaseFragment {
     }
 
     private void showRemovePinDialog() {
-        new AlertDialog.Builder(requireContext())
+        new MaterialAlertDialogBuilder(requireContext())
                 .setTitle("移除PIN码")
                 .setMessage("确定要移除PIN码吗？")
                 .setPositiveButton(R.string.confirm, (dialog, which) -> {
@@ -183,7 +224,7 @@ public class AccountSecurityFragment extends BaseFragment {
     }
 
     private void showLogoutDialog() {
-        new AlertDialog.Builder(requireContext())
+        new MaterialAlertDialogBuilder(requireContext())
                 .setTitle(R.string.logout_confirm_title)
                 .setMessage(R.string.logout_confirm_message)
                 .setPositiveButton(R.string.confirm, (dialog, which) -> {
@@ -276,14 +317,41 @@ public class AccountSecurityFragment extends BaseFragment {
      * @param onFailure 验证失败回调
      */
     private void showPasswordAuthenticationDialog(Runnable onSuccess, Runnable onFailure) {
-        EditText passwordInput = new EditText(requireContext());
-        passwordInput.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
-        passwordInput.setHint("请输入主密码以验证身份");
+        // 使用自定义布局，包含密码可见性切换
+        android.view.View dialogView = getLayoutInflater().inflate(R.layout.dialog_password_input, null);
+        com.google.android.material.textfield.TextInputLayout passwordLayout =
+            dialogView.findViewById(R.id.passwordLayout);
+        com.google.android.material.textfield.TextInputEditText passwordInput =
+            dialogView.findViewById(R.id.passwordInput);
+
+        // 确保初始状态正确：密码隐藏，闭眼图标
+        passwordInput.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        passwordLayout.setEndIconDrawable(requireContext().getDrawable(R.drawable.ic_visibility));
+
+        // 设置密码可见性切换
+        passwordLayout.setEndIconOnClickListener(v -> {
+            // 切换密码可见性
+            int selection = passwordInput.getSelectionEnd();
+            int currentInputType = passwordInput.getInputType();
+            int variation = currentInputType & android.text.InputType.TYPE_MASK_VARIATION;
+
+            if (variation == android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD) {
+                // 当前是密码状态，切换为可见
+                passwordInput.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD);
+                passwordLayout.setEndIconDrawable(requireContext().getDrawable(R.drawable.ic_visibility_off));
+            } else {
+                // 当前是可见状态，切换为密码
+                passwordInput.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
+                passwordLayout.setEndIconDrawable(requireContext().getDrawable(R.drawable.ic_visibility));
+            }
+            // 保持光标位置
+            passwordInput.setSelection(selection);
+        });
 
         new MaterialAlertDialogBuilder(requireContext())
                 .setTitle("验证身份")
                 .setMessage("为了安全起见，请验证您的身份以启用生物识别")
-                .setView(passwordInput)
+                .setView(dialogView)
                 .setPositiveButton("验证", (dialog, which) -> {
                     String password = passwordInput.getText().toString();
                     if (password.isEmpty()) {
@@ -322,6 +390,25 @@ public class AccountSecurityFragment extends BaseFragment {
                     }
                 })
                 .show();
+    }
+
+    /**
+     * 应用截图设置到所有Activity
+     */
+    private void applyScreenshotSettings() {
+        boolean screenshotAllowed = securityConfig.isScreenshotAllowed();
+        int flags = screenshotAllowed ? 0 : android.view.WindowManager.LayoutParams.FLAG_SECURE;
+
+        // 通知所有正在运行的Activity更新截图设置
+        // 这里通过发送广播或者直接更新当前Activity
+        if (getActivity() != null) {
+            getActivity().runOnUiThread(() -> {
+                getActivity().getWindow().clearFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE);
+                if (!screenshotAllowed) {
+                    getActivity().getWindow().addFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE);
+                }
+            });
+        }
     }
 
     @Override

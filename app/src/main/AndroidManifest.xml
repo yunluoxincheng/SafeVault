@@ -163,6 +163,13 @@
             android:screenOrientation="portrait"
             android:theme="@style/Theme.SafeVault.NoActionBar" />
 
+        <!-- AutofillSaveAuthActivity (认证后跳转到 AutofillSaveActivity) -->
+        <activity
+            android:name=".ui.autofill.AutofillSaveAuthActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:theme="@style/Theme.SafeVault.NoActionBar" />
+
         <!-- 分享通知服务 -->
         <service
             android:name=".service.ShareNotificationService"

@@ -12,7 +12,6 @@ import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.appcompat.widget.PopupMenu;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.navigation.Navigation;
@@ -261,28 +260,27 @@ public class PasswordListFragment extends Fragment implements PasswordListAdapte
     }
 
     /**
-     * 显示更多选项弹出菜单
+     * 显示更多选项弹出菜单（使用 Material Design 3 样式）
      */
     private void showMoreOptionsMenu(PasswordItem item, View anchorView) {
-        PopupMenu popup = new PopupMenu(requireContext(), anchorView);
-        popup.getMenuInflater().inflate(R.menu.password_item_menu, popup.getMenu());
+        String[] options = {"复制密码", "编辑", "删除"};
 
-        popup.setOnMenuItemClickListener(menuItem -> {
-            int itemId = menuItem.getItemId();
-            if (itemId == R.id.menu_copy) {
-                onItemCopyClick(item);
-                return true;
-            } else if (itemId == R.id.menu_edit) {
-                onItemEditClick(item);
-                return true;
-            } else if (itemId == R.id.menu_delete) {
-                onItemDeleteClick(item);
-                return true;
-            }
-            return false;
-        });
-
-        popup.show();
+        new MaterialAlertDialogBuilder(requireContext())
+                .setTitle(item.getDisplayName())
+                .setItems(options, (dialog, which) -> {
+                    switch (which) {
+                        case 0:
+                            onItemCopyClick(item);
+                            break;
+                        case 1:
+                            onItemEditClick(item);
+                            break;
+                        case 2:
+                            onItemDeleteClick(item);
+                            break;
+                    }
+                })
+                .show();
     }
 
     // PasswordListAdapter.OnItemClickListener 实现

@@ -31,12 +31,16 @@ public class BluetoothReceiveActivity extends AppCompatActivity {
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        
-        // 设置FLAG_SECURE防止截屏
-        getWindow().setFlags(
-            android.view.WindowManager.LayoutParams.FLAG_SECURE,
-            android.view.WindowManager.LayoutParams.FLAG_SECURE
-        );
+
+        // 设置FLAG_SECURE防止截屏 - 根据 SecurityConfig 设置决定
+        com.ttt.safevault.security.SecurityConfig securityConfig =
+            new com.ttt.safevault.security.SecurityConfig(this);
+        if (securityConfig.isScreenshotProtectionEnabled()) {
+            getWindow().setFlags(
+                android.view.WindowManager.LayoutParams.FLAG_SECURE,
+                android.view.WindowManager.LayoutParams.FLAG_SECURE
+            );
+        }
 
         binding = ActivityBluetoothReceiveBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());

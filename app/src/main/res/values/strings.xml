@@ -124,6 +124,12 @@
     <string name="auto_lock_never">从不</string>
     <string name="biometric_unlock">生物识别解锁</string>
     <string name="biometric_unlock_summary">使用指纹或面部识别快速解锁</string>
+    <string name="allow_screenshot">允许截图</string>
+    <string name="allow_screenshot_summary">允许在应用内截取屏幕（需要验证身份）</string>
+    <string name="screenshot_enabled">已允许截图</string>
+    <string name="screenshot_disabled">已禁止截图</string>
+    <string name="enable_screenshot_confirm">启用截图</string>
+    <string name="enable_screenshot_message">启用截图后，应用内的敏感信息可能会被截获。您确定要启用吗？</string>
     <string name="pin_code">PIN码</string>
     <string name="pin_code_summary">使用PIN码快速解锁应用</string>
     <string name="set_up_pin">设置PIN码</string>
@@ -320,7 +326,12 @@
     <string name="nfc_ready">就绪，请靠近NFC设备</string>
     <string name="nfc_hint">选择NFC后，将设备靠近进行传输</string>
     <string name="cloud_hint">选择云端后，将生成分享链接可通过任何方式分享</string>
-    
+
+    <!-- 传输方式分享标题 -->
+    <string name="qr_code_share">二维码分享</string>
+    <string name="bluetooth_share">蓝牙分享</string>
+    <string name="nfc_share">NFC分享</string>
+
     <!-- 云端传输 -->
     <string name="cloud_share">云端分享</string>
     <string name="copy_link">复制链接</string>

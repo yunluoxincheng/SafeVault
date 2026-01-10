@@ -48,12 +48,16 @@ public class ReceiveShareActivity extends AppCompatActivity {
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        
-        // 设置FLAG_SECURE防止截屏
-        getWindow().setFlags(
-            android.view.WindowManager.LayoutParams.FLAG_SECURE,
-            android.view.WindowManager.LayoutParams.FLAG_SECURE
-        );
+
+        // 设置FLAG_SECURE防止截屏 - 根据 SecurityConfig 设置决定
+        com.ttt.safevault.security.SecurityConfig securityConfig =
+            new com.ttt.safevault.security.SecurityConfig(this);
+        if (securityConfig.isScreenshotProtectionEnabled()) {
+            getWindow().setFlags(
+                android.view.WindowManager.LayoutParams.FLAG_SECURE,
+                android.view.WindowManager.LayoutParams.FLAG_SECURE
+            );
+        }
 
         binding = ActivityReceiveShareBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
@@ -107,9 +111,9 @@ public class ReceiveShareActivity extends AppCompatActivity {
 
         // 检查是否为离线分享
         if (com.ttt.safevault.utils.OfflineShareUtils.isOfflineShare(shareId)) {
-            // 离线分享需要密码
+            // 离线分享（密钥已嵌入，无需密码）
             isCloudShare = false;
-            showPasswordInputDialog();
+            viewModel.receiveOfflineShare(shareId);
         } else {
             // 云端分享，直接请求
             isCloudShare = true;
@@ -268,33 +272,6 @@ public class ReceiveShareActivity extends AppCompatActivity {
                 viewModel.saveSharedPassword(shareId);
             }
         }
-    }
-
-    /**
-     * 显示密码输入对话框（用于离线分享）
-     */
-    private void showPasswordInputDialog() {
-        // 创建输入框
-        EditText input = new EditText(this);
-        input.setHint(getString(R.string.enter_share_password));
-        int padding = (int) (16 * getResources().getDisplayMetrics().density);
-        input.setPadding(padding, padding, padding, padding);
-
-        new MaterialAlertDialogBuilder(this)
-            .setTitle(R.string.share_password_required)
-            .setView(input)
-            .setPositiveButton(R.string.confirm, (dialog, which) -> {
-                String password = input.getText().toString();
-                if (password.isEmpty()) {
-                    Toast.makeText(this, "请输入分享密码", Toast.LENGTH_SHORT).show();
-                    finish();
-                } else {
-                    viewModel.receiveOfflineShare(shareId, password);
-                }
-            })
-            .setNegativeButton(R.string.cancel, (dialog, which) -> finish())
-            .setCancelable(false)
-            .show();
     }
 
     @Override

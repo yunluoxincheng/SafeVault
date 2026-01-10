@@ -79,24 +79,23 @@ public class ReceiveShareViewModel extends AndroidViewModel {
     /**
      * 接收离线分享（二维码）
      * @param qrContent 二维码内容
-     * @param sharePassword 分享密码
      */
-    public void receiveOfflineShare(String qrContent, String sharePassword) {
+    public void receiveOfflineShare(String qrContent) {
         _isLoading.setValue(true);
         _errorMessage.setValue(null);
 
         executor.execute(() -> {
             try {
-                // 解析离线分享
-                PasswordItem passwordItem = backendService.receiveOfflineShare(qrContent, sharePassword);
-                
+                // 解析离线分享（密钥已嵌入，无需密码）
+                PasswordItem passwordItem = backendService.receiveOfflineShare(qrContent);
+
                 if (passwordItem != null) {
                     _sharedPassword.postValue(passwordItem);
                     // 离线分享没有分享详情，创建一个默认的
                     PasswordShare fakeShare = new PasswordShare();
                     fakeShare.setShareId("offline");
                     fakeShare.setFromUserId("离线分享");
-                    com.ttt.safevault.model.SharePermission permission = 
+                    com.ttt.safevault.model.SharePermission permission =
                         new com.ttt.safevault.model.SharePermission();
                     permission.setCanView(true);
                     permission.setCanSave(true);
@@ -105,7 +104,7 @@ public class ReceiveShareViewModel extends AndroidViewModel {
                     fakeShare.setExpireTime(0);
                     _shareDetails.postValue(fakeShare);
                 } else {
-                    _errorMessage.postValue("无法接收离线分享：密码错误或数据无效");
+                    _errorMessage.postValue("无法接收离线分享：数据无效或已过期");
                 }
             } catch (Exception e) {
                 _errorMessage.postValue("接收离线分享失败: " + e.getMessage());

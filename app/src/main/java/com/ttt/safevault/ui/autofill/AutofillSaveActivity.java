@@ -1,5 +1,6 @@
 package com.ttt.safevault.ui.autofill;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.view.WindowManager;
 import android.widget.Toast;
@@ -24,11 +25,11 @@ import java.util.concurrent.Executors;
  */
 public class AutofillSaveActivity extends AppCompatActivity {
     private static final String TAG = "AutofillSaveActivity";
-    
+
     private ActivityAutofillSaveBinding binding;
     private BackendService backendService;
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
-    
+
     // Intent 数据
     private String username;
     private String password;
@@ -36,7 +37,7 @@ public class AutofillSaveActivity extends AppCompatActivity {
     private String packageName;
     private String title;
     private boolean isWeb;
-    
+
     // 去重检查结果
     private boolean isDuplicate = false;
     private PasswordItem existingItem = null;
@@ -44,12 +45,16 @@ public class AutofillSaveActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        
-        // 设置FLAG_SECURE防止截屏
-        getWindow().setFlags(
-                WindowManager.LayoutParams.FLAG_SECURE,
-                WindowManager.LayoutParams.FLAG_SECURE
-        );
+
+        // 设置FLAG_SECURE防止截屏 - 根据 SecurityConfig 设置决定
+        com.ttt.safevault.security.SecurityConfig securityConfig =
+            new com.ttt.safevault.security.SecurityConfig(this);
+        if (securityConfig.isScreenshotProtectionEnabled()) {
+            getWindow().setFlags(
+                    WindowManager.LayoutParams.FLAG_SECURE,
+                    WindowManager.LayoutParams.FLAG_SECURE
+            );
+        }
 
         binding = ActivityAutofillSaveBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
@@ -85,7 +90,7 @@ public class AutofillSaveActivity extends AppCompatActivity {
         if (title != null && !title.isEmpty()) {
             binding.titleInput.setText(title);
         }
-        
+
         if (isWeb && domain != null) {
             binding.websiteInput.setText(domain);
         } else if (packageName != null) {
@@ -100,7 +105,7 @@ public class AutofillSaveActivity extends AppCompatActivity {
             setResult(RESULT_CANCELED);
             finish();
         });
-        
+
         // 启动去重检查
         checkDuplicateCredential();
     }
@@ -114,7 +119,7 @@ public class AutofillSaveActivity extends AppCompatActivity {
             binding.saveButton.setEnabled(false);
             binding.saveButton.setText(R.string.checking);
         });
-        
+
         executor.execute(() -> {
             try {
                 // 检查是否已解锁
@@ -125,7 +130,7 @@ public class AutofillSaveActivity extends AppCompatActivity {
                     });
                     return;
                 }
-                
+
                 // 构造搜索关键词
                 String searchKeyword = null;
                 if (isWeb && domain != null) {
@@ -133,7 +138,7 @@ public class AutofillSaveActivity extends AppCompatActivity {
                 } else if (packageName != null) {
                     searchKeyword = packageName;
                 }
-                
+
                 if (searchKeyword == null || searchKeyword.isEmpty()) {
                     runOnUiThread(() -> {
                         binding.saveButton.setEnabled(true);
@@ -141,18 +146,18 @@ public class AutofillSaveActivity extends AppCompatActivity {
                     });
                     return;
                 }
-                
+
                 // 搜索匹配的凭据
                 List<PasswordItem> items = backendService.search(searchKeyword);
-                
+
                 if (items != null && !items.isEmpty()) {
                     // 检查是否有相同的用户名
                     String currentUsername = username != null ? username.trim() : "";
-                    
+
                     for (PasswordItem item : items) {
                         String itemDomain = AutofillUtils.extractDomainFromUrl(item.getUrl());
                         String currentDomain = isWeb ? domain : packageName;
-                        
+
                         // 检查域名和用户名是否匹配
                         boolean domainMatches = false;
                         if (itemDomain != null && currentDomain != null) {
@@ -163,7 +168,7 @@ public class AutofillSaveActivity extends AppCompatActivity {
                                 domainMatches = itemDomain.equals(currentDomain);
                             }
                         }
-                        
+
                         if (domainMatches) {
                             String itemUsername = item.getUsername() != null ? item.getUsername().trim() : "";
                             if (itemUsername.equalsIgnoreCase(currentUsername)) {
@@ -175,17 +180,17 @@ public class AutofillSaveActivity extends AppCompatActivity {
                         }
                     }
                 }
-                
+
                 // 更新UI
                 runOnUiThread(() -> {
                     binding.saveButton.setEnabled(true);
                     binding.saveButton.setText(R.string.button_save);
-                    
+
                     if (isDuplicate) {
                         showDuplicateWarning();
                     }
                 });
-                
+
             } catch (Exception e) {
                 e.printStackTrace();
                 runOnUiThread(() -> {
@@ -238,15 +243,6 @@ public class AutofillSaveActivity extends AppCompatActivity {
         // 异步保存
         executor.execute(() -> {
             try {
-                // 检查是否已解锁
-                if (backendService == null || !backendService.isUnlocked()) {
-                    runOnUiThread(() -> {
-                        Toast.makeText(this, R.string.error_app_locked, Toast.LENGTH_SHORT).show();
-                        finish();
-                    });
-                    return;
-                }
-
                 // 创建PasswordItem
                 PasswordItem item = new PasswordItem();
                 item.setTitle(titleText.isEmpty() ? usernameText : titleText);
@@ -262,11 +258,15 @@ public class AutofillSaveActivity extends AppCompatActivity {
                     if (savedId > 0) {
                         Toast.makeText(this, R.string.autofill_save_success, Toast.LENGTH_SHORT).show();
                         setResult(RESULT_OK);
+                        // 保存成功后启动 MainActivity
+                        Intent intent = new Intent(this, com.ttt.safevault.ui.MainActivity.class);
+                        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                        startActivity(intent);
                     } else {
                         Toast.makeText(this, R.string.autofill_save_failed, Toast.LENGTH_SHORT).show();
                         setResult(RESULT_CANCELED);
+                        finish();
                     }
-                    finish();
                 });
 
             } catch (Exception e) {

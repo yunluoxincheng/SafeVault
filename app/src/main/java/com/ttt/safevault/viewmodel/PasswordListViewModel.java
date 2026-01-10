@@ -11,6 +11,7 @@ import androidx.lifecycle.MutableLiveData;
 import com.ttt.safevault.model.BackendService;
 import com.ttt.safevault.model.PasswordItem;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -59,7 +60,8 @@ public class PasswordListViewModel extends AndroidViewModel {
         executor.execute(() -> {
             try {
                 List<PasswordItem> items = backendService.getAllItems();
-                allItems = items;
+                // 创建新的 ArrayList 以确保 ListAdapter 能检测到变化
+                allItems = new ArrayList<>(items);
 
                 // 应用当前搜索过滤
                 String currentQuery = _searchQuery.getValue();
@@ -102,7 +104,8 @@ public class PasswordListViewModel extends AndroidViewModel {
                     filteredItems = filterItems(allItems, query.trim());
                 }
 
-                _passwordItems.postValue(filteredItems);
+                // 创建新的 ArrayList 以确保 ListAdapter 能检测到变化
+                _passwordItems.postValue(new ArrayList<>(filteredItems));
                 _isEmpty.postValue(filteredItems.isEmpty());
             } catch (Exception e) {
                 _errorMessage.postValue("搜索失败: " + e.getMessage());
@@ -118,7 +121,8 @@ public class PasswordListViewModel extends AndroidViewModel {
         _isSearching.setValue(false);
 
         if (allItems != null) {
-            _passwordItems.setValue(allItems);
+            // 创建新的 ArrayList 以确保 ListAdapter 能检测到变化
+            _passwordItems.setValue(new ArrayList<>(allItems));
             _isEmpty.setValue(allItems.isEmpty());
         } else {
             loadPasswordItems();
@@ -133,14 +137,17 @@ public class PasswordListViewModel extends AndroidViewModel {
             try {
                 boolean success = backendService.deleteItem(itemId);
                 if (success) {
-                    // 从列表中移除
+                    // 从列表中移除 - 创建新列表以确保 ListAdapter 能检测到变化
                     List<PasswordItem> currentItems = _passwordItems.getValue();
                     if (currentItems != null) {
-                        currentItems.removeIf(item -> item.getId() == itemId);
-                        _passwordItems.postValue(currentItems);
+                        // 创建新的 ArrayList，而不是修改原列表
+                        List<PasswordItem> updatedItems = new ArrayList<>(currentItems);
+                        updatedItems.removeIf(item -> item.getId() == itemId);
+                        _passwordItems.postValue(updatedItems);
 
-                        // 更新原始数据
+                        // 更新原始数据 - 同样创建新列表
                         if (allItems != null) {
+                            allItems = new ArrayList<>(allItems);
                             allItems.removeIf(item -> item.getId() == itemId);
                         }
                     }
@@ -204,7 +211,8 @@ public class PasswordListViewModel extends AndroidViewModel {
         executor.execute(() -> {
             try {
                 List<PasswordItem> items = backendService.getAllItems();
-                allItems = items;
+                // 创建新的 ArrayList 以确保 ListAdapter 能检测到变化
+                allItems = new ArrayList<>(items);
 
                 // 应用当前搜索过滤
                 String currentQuery = _searchQuery.getValue();

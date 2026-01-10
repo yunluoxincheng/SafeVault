@@ -328,24 +328,23 @@ public class CryptoManager {
                 Log.e(TAG, "Failed to get keystore key");
                 return;
             }
-            
-            // 使用 Keystore 密钥加密主密钥
-            byte[] iv = new byte[IV_SIZE];
-            new SecureRandom().nextBytes(iv);
-            
+
+            // 使用 Keystore 密钥加密会话密钥
+            // 注意：对于 Android Keystore 中的 GCM 模式密钥，不能提供自定义 IV
+            // 必须让系统自动生成 IV
             Cipher cipher = Cipher.getInstance(ALGORITHM);
-            GCMParameterSpec spec = new GCMParameterSpec(TAG_SIZE, iv);
-            cipher.init(Cipher.ENCRYPT_MODE, keystoreKey, spec);
-            
+            cipher.init(Cipher.ENCRYPT_MODE, keystoreKey);
+
             byte[] encryptedKey = cipher.doFinal(key.getEncoded());
-            
+            byte[] iv = cipher.getIV();
+
             // 保存加密后的密钥和IV
             SharedPreferences.Editor editor = prefs.edit();
             editor.putString(PREF_SESSION_KEY, Base64.encodeToString(encryptedKey, Base64.NO_WRAP));
             editor.putString(PREF_SESSION_IV, Base64.encodeToString(iv, Base64.NO_WRAP));
             editor.putLong(PREF_UNLOCK_TIME, System.currentTimeMillis());
             editor.apply();
-            
+
             Log.d(TAG, "Session key persisted successfully");
         } catch (Exception e) {
             Log.e(TAG, "Failed to persist session key", e);

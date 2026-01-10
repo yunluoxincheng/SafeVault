@@ -56,8 +56,14 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        // 防止截图
-        getWindow().addFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE);
+        // 防止截图 - 根据 SecurityConfig 设置决定
+        com.ttt.safevault.security.SecurityConfig securityConfig =
+            new com.ttt.safevault.security.SecurityConfig(this);
+        if (securityConfig.isScreenshotProtectionEnabled()) {
+            getWindow().addFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE);
+        } else {
+            getWindow().clearFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE);
+        }
 
         // 获取BackendService实例
         backendService = com.ttt.safevault.ServiceLocator.getInstance().getBackendService();
@@ -70,6 +76,37 @@ public class MainActivity extends AppCompatActivity {
 
         // 初始化搜索历史管理器
         searchHistoryManager = SearchHistoryManager.getInstance(this);
+
+        // 检查启动来源：
+        // 1. savedInstanceState != null：Activity被系统重建，不需要检查锁定
+        // 2. Intent有FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY：从最近任务恢复，需要检查锁定
+        // 3. 否则：正常启动（登录后跳转），清除后台时间
+        Intent intent = getIntent();
+        boolean launchedFromHistory = (intent.getFlags() & Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY) != 0;
+
+        // 调试日志
+        android.util.Log.d("MainActivity", "onCreate - savedInstanceState=" + savedInstanceState +
+            ", launchedFromHistory=" + launchedFromHistory +
+            ", action=" + intent.getAction());
+
+        if (backendService != null) {
+            long bgTime = backendService.getBackgroundTime();
+            android.util.Log.d("MainActivity", "backgroundTime=" + bgTime);
+        }
+
+        if (savedInstanceState == null && launchedFromHistory) {
+            // 从最近任务/后台恢复，检查是否需要锁定
+            android.util.Log.d("MainActivity", "从后台恢复，检查是否需要锁定");
+            if (shouldLockOnStart()) {
+                android.util.Log.d("MainActivity", "需要锁定，跳转到登录页面");
+                lockApp();
+                return;
+            }
+        } else if (savedInstanceState == null && !launchedFromHistory && backendService != null) {
+            // 正常启动（如登录后跳转），清除后台时间记录
+            android.util.Log.d("MainActivity", "正常启动，清除后台时间");
+            backendService.clearBackgroundTime();
+        }
 
         initNavigation();
         initToolbar();
@@ -421,27 +458,66 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        android.util.Log.d("MainActivity", "onResume");
         // 应用从后台返回时，检查是否需要重新锁定
         checkAutoLock();
     }
 
     @Override
-    protected void onPause() {
-        super.onPause();
-        // 记录进入后台的时间
+    protected void onUserLeaveHint() {
+        super.onUserLeaveHint();
+        android.util.Log.d("MainActivity", "onUserLeaveHint - 记录后台时间");
+        // 用户主动离开应用时记录时间（按Home键、切换应用等）
+        // 注意：这个方法不会在Activity内部导航时调用
         if (backendService != null) {
             backendService.recordBackgroundTime();
         }
     }
 
+    /**
+     * 检查应用启动时是否需要锁定
+     * 如果后台时间超过设定的超时时间，返回true
+     */
+    private boolean shouldLockOnStart() {
+        if (backendService != null) {
+            long backgroundTime = backendService.getBackgroundTime();
+            long autoLockTimeoutMillis = new com.ttt.safevault.security.SecurityConfig(this)
+                    .getAutoLockTimeoutMillisForMode();
+
+            // 如果没有后台时间记录，不需要锁定（首次启动或刚登录成功）
+            if (backgroundTime == 0) {
+                return false;
+            }
+
+            // 从不锁定模式
+            if (autoLockTimeoutMillis == Long.MAX_VALUE) {
+                return false;
+            }
+
+            // 立即锁定模式：只要有后台时间记录就锁定（应用进入过后台）
+            if (autoLockTimeoutMillis == 0) {
+                return true;
+            }
+
+            // 其他模式：检查是否超时
+            long backgroundMillis = System.currentTimeMillis() - backgroundTime;
+            return backgroundMillis >= autoLockTimeoutMillis;
+        }
+        return false;
+    }
+
+    /**
+     * 检查应用从后台返回时是否需要锁定
+     */
     private void checkAutoLock() {
         if (backendService != null) {
             long backgroundTime = backendService.getBackgroundTime();
-            int autoLockTimeout = backendService.getAutoLockTimeout(); // 分钟
+            long autoLockTimeoutMillis = new com.ttt.safevault.security.SecurityConfig(this)
+                    .getAutoLockTimeoutMillisForMode();
 
-            if (backgroundTime > 0 && autoLockTimeout > 0) {
-                long backgroundMinutes = (System.currentTimeMillis() - backgroundTime) / (60 * 1000);
-                if (backgroundMinutes >= autoLockTimeout) {
+            if (backgroundTime > 0 && autoLockTimeoutMillis != Long.MAX_VALUE) {
+                long backgroundMillis = System.currentTimeMillis() - backgroundTime;
+                if (backgroundMillis >= autoLockTimeoutMillis) {
                     // 超时，需要重新锁定
                     lockApp();
                 }

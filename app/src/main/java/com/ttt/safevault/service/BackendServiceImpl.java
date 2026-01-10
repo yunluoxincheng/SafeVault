@@ -373,13 +373,23 @@ public class BackendServiceImpl implements BackendService {
     }
 
     @Override
+    public void clearBackgroundTime() {
+        prefs.edit().remove(PREF_BACKGROUND_TIME).apply();
+    }
+
+    @Override
     public long getBackgroundTime() {
         return prefs.getLong(PREF_BACKGROUND_TIME, 0);
     }
 
     @Override
     public int getAutoLockTimeout() {
-        return securityConfig.getAutoLockTimeout();
+        // 返回自动锁定模式的超时时间（分钟）
+        long timeoutMillis = securityConfig.getAutoLockTimeoutMillisForMode();
+        if (timeoutMillis == Long.MAX_VALUE) {
+            return -1; // 从不锁定
+        }
+        return (int) (timeoutMillis / (60 * 1000)); // 转换为分钟
     }
 
     /**
@@ -892,7 +902,7 @@ public class BackendServiceImpl implements BackendService {
     // ========== 新增：离线分享接口实现 ==========
 
     @Override
-    public String createOfflineShare(int passwordId, String sharePassword,
+    public String createOfflineShare(int passwordId,
                                     int expireInMinutes, SharePermission permission) {
         try {
             // 获取密码数据
@@ -902,10 +912,10 @@ public class BackendServiceImpl implements BackendService {
                 return null;
             }
 
-            // 使用OfflineShareUtils创建离线分享
+            // 使用OfflineShareUtils创建离线分享（版本2：嵌入密钥）
             com.ttt.safevault.utils.OfflineShareUtils.OfflineSharePacket packet =
                 com.ttt.safevault.utils.OfflineShareUtils.createOfflineShare(
-                    item, sharePassword, expireInMinutes, permission
+                    item, expireInMinutes, permission
                 );
 
             if (packet == null) {
@@ -923,11 +933,11 @@ public class BackendServiceImpl implements BackendService {
     }
 
     @Override
-    public PasswordItem receiveOfflineShare(String qrContent, String sharePassword) {
+    public PasswordItem receiveOfflineShare(String qrContent) {
         try {
             // 使用OfflineShareUtils解析离线分享
             PasswordItem item = com.ttt.safevault.utils.OfflineShareUtils.parseOfflineShare(
-                qrContent, sharePassword
+                qrContent
             );
 
             if (item == null) {
@@ -942,11 +952,6 @@ public class BackendServiceImpl implements BackendService {
             Log.e(TAG, "Failed to receive offline share", e);
             return null;
         }
-    }
-
-    @Override
-    public String generateSharePassword(int length) {
-        return com.ttt.safevault.utils.OfflineShareUtils.generateRandomPassword(length);
     }
 
     // ========== 云端分享接口实现 ==========

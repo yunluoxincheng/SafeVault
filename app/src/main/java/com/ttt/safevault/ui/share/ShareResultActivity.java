@@ -11,7 +11,6 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
-import android.nfc.NdefMessage;
 import android.nfc.NfcAdapter;
 import android.nfc.Tag;
 import android.os.Build;
@@ -44,11 +43,10 @@ public class ShareResultActivity extends AppCompatActivity {
 
     private ActivityShareResultBinding binding;
     private String shareToken;
-    private String sharePassword;  // 离线分享密码
-    private boolean isOfflineShare;  // 是否为离线分享
+    private boolean isOfflineShare;
     private int passwordId;
-    private String transmissionMethod;  // 传输方式
-    
+    private String transmissionMethod;
+
     private BluetoothTransferManager bluetoothManager;
     private NFCTransferManager nfcManager;
     private NfcAdapter nfcAdapter;
@@ -58,30 +56,33 @@ public class ShareResultActivity extends AppCompatActivity {
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        
-        // 设置FLAG_SECURE防止截屏
-        getWindow().setFlags(
-            android.view.WindowManager.LayoutParams.FLAG_SECURE,
-            android.view.WindowManager.LayoutParams.FLAG_SECURE
-        );
+
+        // 设置FLAG_SECURE防止截屏 - 根据 SecurityConfig 设置决定
+        com.ttt.safevault.security.SecurityConfig securityConfig =
+            new com.ttt.safevault.security.SecurityConfig(this);
+        if (securityConfig.isScreenshotProtectionEnabled()) {
+            getWindow().setFlags(
+                android.view.WindowManager.LayoutParams.FLAG_SECURE,
+                android.view.WindowManager.LayoutParams.FLAG_SECURE
+            );
+        }
 
         binding = ActivityShareResultBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
-        
+
         // 初始化蓝牙管理器
         bluetoothManager = new BluetoothTransferManager(this);
-        
+
         // 初始化NFC管理器
         nfcManager = new NFCTransferManager(this);
         nfcAdapter = nfcManager.getNfcAdapter();
-        
+
         // 初始化权限启动器
         initPermissionLaunchers();
 
         // 获取分享Token
         shareToken = getIntent().getStringExtra("SHARE_TOKEN");
         passwordId = getIntent().getIntExtra("PASSWORD_ID", -1);
-        sharePassword = getIntent().getStringExtra("SHARE_PASSWORD");
         isOfflineShare = getIntent().getBooleanExtra("IS_OFFLINE_SHARE", false);
         transmissionMethod = getIntent().getStringExtra("TRANSMISSION_METHOD");
 
@@ -93,7 +94,7 @@ public class ShareResultActivity extends AppCompatActivity {
 
         setupToolbar();
         setupViews();
-        
+
         // 根据传输方式显示不同界面
         if ("BLUETOOTH".equals(transmissionMethod)) {
             showBluetoothTransferUI();
@@ -112,24 +113,34 @@ public class ShareResultActivity extends AppCompatActivity {
             getSupportActionBar().setDisplayHomeAsUpEnabled(true);
         }
         binding.toolbar.setNavigationOnClickListener(v -> finish());
+
+        // 根据传输方式设置标题
+        updateToolbarTitle();
+    }
+
+    private void updateToolbarTitle() {
+        int titleResId;
+        switch (transmissionMethod) {
+            case "BLUETOOTH":
+                titleResId = R.string.bluetooth_share;
+                break;
+            case "NFC":
+                titleResId = R.string.nfc_share;
+                break;
+            case "CLOUD":
+                titleResId = R.string.cloud_share;
+                break;
+            case "QR_CODE":
+            default:
+                titleResId = R.string.qr_code_share;
+                break;
+        }
+        binding.toolbar.setTitle(titleResId);
     }
 
     private void setupViews() {
         // 显示分享Token
         binding.textShareToken.setText(shareToken);
-
-        // 如果是离线分享，显示分享密码
-        if (isOfflineShare && sharePassword != null) {
-            binding.labelSharePassword.setVisibility(View.VISIBLE);
-            binding.textSharePassword.setVisibility(View.VISIBLE);
-            binding.btnCopySharePassword.setVisibility(View.VISIBLE);
-            binding.textSharePassword.setText(sharePassword);
-            binding.btnCopySharePassword.setOnClickListener(v -> copySharePasswordToClipboard());
-        } else {
-            binding.labelSharePassword.setVisibility(View.GONE);
-            binding.textSharePassword.setVisibility(View.GONE);
-            binding.btnCopySharePassword.setVisibility(View.GONE);
-        }
 
         // 复制按钮
         binding.btnCopyToken.setOnClickListener(v -> copyTokenToClipboard());
@@ -141,7 +152,7 @@ public class ShareResultActivity extends AppCompatActivity {
     private void generateQRCode() {
         // 使用QRCodeUtils生成二维码
         Bitmap qrBitmap = QRCodeUtils.generatePasswordShareQRCode(shareToken);
-        
+
         if (qrBitmap != null) {
             binding.imageQRCode.setImageBitmap(qrBitmap);
         } else {
@@ -156,13 +167,6 @@ public class ShareResultActivity extends AppCompatActivity {
         Toast.makeText(this, "分享码已复制", Toast.LENGTH_SHORT).show();
     }
 
-    private void copySharePasswordToClipboard() {
-        ClipboardManager clipboard = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
-        ClipData clip = ClipData.newPlainText("分享密码", sharePassword);
-        clipboard.setPrimaryClip(clip);
-        Toast.makeText(this, "分享密码已复制", Toast.LENGTH_SHORT).show();
-    }
-
     @Override
     protected void onDestroy() {
         super.onDestroy();
@@ -171,7 +175,7 @@ public class ShareResultActivity extends AppCompatActivity {
         }
         binding = null;
     }
-    
+
     @Override
     protected void onResume() {
         super.onResume();
@@ -180,7 +184,7 @@ public class ShareResultActivity extends AppCompatActivity {
             enableNfcForegroundDispatch();
         }
     }
-    
+
     @Override
     protected void onPause() {
         super.onPause();
@@ -189,7 +193,7 @@ public class ShareResultActivity extends AppCompatActivity {
             disableNfcForegroundDispatch();
         }
     }
-    
+
     @Override
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
@@ -201,9 +205,9 @@ public class ShareResultActivity extends AppCompatActivity {
             }
         }
     }
-    
+
     // ========== 蓝牙传输相关 ==========
-    
+
     private void initPermissionLaunchers() {
         // 蓝牙权限启动器
         bluetoothPermissionLauncher = registerForActivityResult(
@@ -223,7 +227,7 @@ public class ShareResultActivity extends AppCompatActivity {
                 }
             }
         );
-        
+
         // 开启蓝牙启动器
         enableBluetoothLauncher = registerForActivityResult(
             new ActivityResultContracts.StartActivityForResult(),
@@ -236,30 +240,25 @@ public class ShareResultActivity extends AppCompatActivity {
             }
         );
     }
-    
+
     private void showBluetoothTransferUI() {
-        // 隐藏二维码相关UI
+        // 隐藏二维码和分享码相关UI
         binding.imageQRCode.setVisibility(View.GONE);
-        binding.textShareToken.setVisibility(View.GONE);
+        binding.cardShareToken.setVisibility(View.GONE);
         binding.btnCopyToken.setVisibility(View.GONE);
-        
-        // 隐藏分享密码相关UI
-        binding.labelSharePassword.setVisibility(View.GONE);
-        binding.textSharePassword.setVisibility(View.GONE);
-        binding.btnCopySharePassword.setVisibility(View.GONE);
-        
+
         // 显示蓝牙传输按钮
         binding.btnDone.setText(R.string.select_bluetooth_device);
         binding.btnDone.setOnClickListener(v -> startBluetoothTransfer());
     }
-    
+
     private void startBluetoothTransfer() {
         // 检查蓝牙是否可用
         if (!bluetoothManager.isBluetoothAvailable()) {
             Toast.makeText(this, R.string.bluetooth_not_available, Toast.LENGTH_SHORT).show();
             return;
         }
-        
+
         // 检查蓝牙是否已开启
         if (!bluetoothManager.isBluetoothEnabled()) {
             // 请求开启蓝牙
@@ -267,17 +266,17 @@ public class ShareResultActivity extends AppCompatActivity {
             enableBluetoothLauncher.launch(enableBtIntent);
             return;
         }
-        
+
         // 检查权限
         if (!bluetoothManager.hasBluetoothPermissions()) {
             requestBluetoothPermissions();
             return;
         }
-        
+
         // 显示设备选择器
         showBluetoothDeviceSelector();
     }
-    
+
     private void requestBluetoothPermissions() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             // Android 12+
@@ -293,29 +292,29 @@ public class ShareResultActivity extends AppCompatActivity {
             });
         }
     }
-    
+
     private void showBluetoothDeviceSelector() {
         Set<BluetoothDevice> pairedDevices = bluetoothManager.getPairedDevices();
-        
+
         if (pairedDevices == null || pairedDevices.isEmpty()) {
             Toast.makeText(this, R.string.no_paired_devices, Toast.LENGTH_SHORT).show();
             return;
         }
-        
+
         // 转换为列表
         List<BluetoothDevice> deviceList = new ArrayList<>(pairedDevices);
         String[] deviceNames = new String[deviceList.size()];
-        
+
         for (int i = 0; i < deviceList.size(); i++) {
             BluetoothDevice device = deviceList.get(i);
-            if (ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) 
+            if (ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT)
                 == PackageManager.PERMISSION_GRANTED) {
                 deviceNames[i] = device.getName() != null ? device.getName() : device.getAddress();
             } else {
                 deviceNames[i] = device.getAddress();
             }
         }
-        
+
         // 显示选择对话框
         new AlertDialog.Builder(this)
             .setTitle(R.string.select_bluetooth_device)
@@ -326,7 +325,7 @@ public class ShareResultActivity extends AppCompatActivity {
             .setNegativeButton(R.string.cancel, null)
             .show();
     }
-    
+
     private void sendViaBluetooth(BluetoothDevice device) {
         // 设置传输回调
         bluetoothManager.setTransferCallback(new BluetoothTransferManager.TransferCallback() {
@@ -348,7 +347,7 @@ public class ShareResultActivity extends AppCompatActivity {
             @Override
             public void onTransferSuccess(String data) {
                 runOnUiThread(() -> {
-                    Toast.makeText(ShareResultActivity.this, 
+                    Toast.makeText(ShareResultActivity.this,
                         R.string.bluetooth_send_success, Toast.LENGTH_SHORT).show();
                     finish();
                 });
@@ -359,42 +358,37 @@ public class ShareResultActivity extends AppCompatActivity {
                 runOnUiThread(() -> {
                     binding.btnDone.setEnabled(true);
                     binding.btnDone.setText(R.string.select_bluetooth_device);
-                    Toast.makeText(ShareResultActivity.this, 
-                        getString(R.string.bluetooth_send_failed) + ": " + error, 
+                    Toast.makeText(ShareResultActivity.this,
+                        getString(R.string.bluetooth_send_failed) + ": " + error,
                         Toast.LENGTH_LONG).show();
                 });
             }
         });
-        
+
         // 发送数据
         bluetoothManager.sendData(device, shareToken);
     }
-    
+
     // ========== NFC传输相关 ==========
-    
+
     private void showNFCTransferUI() {
-        // 隐藏二维码相关UI
+        // 隐藏二维码和分享码相关UI
         binding.imageQRCode.setVisibility(View.GONE);
-        binding.textShareToken.setVisibility(View.GONE);
+        binding.cardShareToken.setVisibility(View.GONE);
         binding.btnCopyToken.setVisibility(View.GONE);
-        
-        // 隐藏分享密码相关UI
-        binding.labelSharePassword.setVisibility(View.GONE);
-        binding.textSharePassword.setVisibility(View.GONE);
-        binding.btnCopySharePassword.setVisibility(View.GONE);
-        
+
         // 显示NFC提示
         binding.btnDone.setText(R.string.nfc_ready);
         binding.btnDone.setOnClickListener(null);
         binding.btnDone.setEnabled(false);
-        
+
         // 检查NFC是否可用
         if (!nfcManager.isNfcAvailable()) {
             Toast.makeText(this, R.string.nfc_not_available, Toast.LENGTH_SHORT).show();
             binding.btnDone.setText(R.string.nfc_not_available);
             return;
         }
-        
+
         // 检查NFC是否已开启
         if (!nfcManager.isNfcEnabled()) {
             Toast.makeText(this, R.string.nfc_not_enabled, Toast.LENGTH_SHORT).show();
@@ -406,42 +400,37 @@ public class ShareResultActivity extends AppCompatActivity {
             });
             return;
         }
-        
+
         // NFC已就绪
         Toast.makeText(this, R.string.nfc_tap_hint, Toast.LENGTH_LONG).show();
     }
-    
+
     // ========== 云端传输相关 ==========
-    
+
     private void showCloudTransferUI() {
         // 隐藏二维码
         binding.imageQRCode.setVisibility(View.GONE);
-        
-        // 隐藏分享密码相关UI
-        binding.labelSharePassword.setVisibility(View.GONE);
-        binding.textSharePassword.setVisibility(View.GONE);
-        binding.btnCopySharePassword.setVisibility(View.GONE);
-        
+
         // 生成云端分享链接（占位实现）
         String cloudLink = generateCloudShareLink(shareToken);
-        
+
         // 显示分享链接
         binding.textShareToken.setVisibility(View.VISIBLE);
         binding.textShareToken.setText(cloudLink);
-        
+
         // 复制按钮改为复制链接
         binding.btnCopyToken.setVisibility(View.VISIBLE);
         binding.btnCopyToken.setText(R.string.copy_link);
         binding.btnCopyToken.setOnClickListener(v -> copyCloudLinkToClipboard(cloudLink));
-        
+
         // 完成按钮改为分享链接
         binding.btnDone.setText(R.string.share_link);
         binding.btnDone.setOnClickListener(v -> shareCloudLink(cloudLink));
-        
+
         // 显示占位提示
         Toast.makeText(this, R.string.cloud_share_placeholder_hint, Toast.LENGTH_LONG).show();
     }
-    
+
     /**
      * 生成云端分享链接（占位实现）
      */
@@ -450,7 +439,7 @@ public class ShareResultActivity extends AppCompatActivity {
         // 当前仅为占位实现，生成本地模拟链接
         return "https://safevault.app/share/" + shareToken.substring(0, Math.min(8, shareToken.length()));
     }
-    
+
     /**
      * 复制云端链接到剪贴板
      */
@@ -460,7 +449,7 @@ public class ShareResultActivity extends AppCompatActivity {
         clipboard.setPrimaryClip(clip);
         Toast.makeText(this, R.string.link_copied, Toast.LENGTH_SHORT).show();
     }
-    
+
     /**
      * 通过系统分享菜单分享链接
      */
@@ -471,28 +460,28 @@ public class ShareResultActivity extends AppCompatActivity {
         shareIntent.putExtra(Intent.EXTRA_SUBJECT, getString(R.string.share_password));
         startActivity(Intent.createChooser(shareIntent, getString(R.string.share_via)));
     }
-    
+
     private void enableNfcForegroundDispatch() {
         if (nfcAdapter == null) return;
-        
+
         Intent intent = new Intent(this, getClass()).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
         PendingIntent pendingIntent = PendingIntent.getActivity(
-            this, 0, intent, 
+            this, 0, intent,
             PendingIntent.FLAG_MUTABLE | PendingIntent.FLAG_UPDATE_CURRENT
         );
-        
+
         IntentFilter[] filters = new IntentFilter[]{
             new IntentFilter(NfcAdapter.ACTION_TAG_DISCOVERED)
         };
-        
+
         nfcAdapter.enableForegroundDispatch(this, pendingIntent, filters, null);
     }
-    
+
     private void disableNfcForegroundDispatch() {
         if (nfcAdapter == null) return;
         nfcAdapter.disableForegroundDispatch(this);
     }
-    
+
     private void writeNfcTag(Tag tag) {
         // 设置回调
         nfcManager.setTransferCallback(new NFCTransferManager.TransferCallback() {
@@ -506,7 +495,7 @@ public class ShareResultActivity extends AppCompatActivity {
             @Override
             public void onTransferSuccess() {
                 runOnUiThread(() -> {
-                    Toast.makeText(ShareResultActivity.this, 
+                    Toast.makeText(ShareResultActivity.this,
                         R.string.nfc_write_success, Toast.LENGTH_SHORT).show();
                     finish();
                 });
@@ -516,8 +505,8 @@ public class ShareResultActivity extends AppCompatActivity {
             public void onTransferFailed(String error) {
                 runOnUiThread(() -> {
                     binding.btnDone.setText(R.string.nfc_ready);
-                    Toast.makeText(ShareResultActivity.this, 
-                        getString(R.string.nfc_write_failed) + ": " + error, 
+                    Toast.makeText(ShareResultActivity.this,
+                        getString(R.string.nfc_write_failed) + ": " + error,
                         Toast.LENGTH_LONG).show();
                 });
             }
@@ -527,7 +516,7 @@ public class ShareResultActivity extends AppCompatActivity {
                 // 发送端不需要处理接收
             }
         });
-        
+
         // 写入标签
         nfcManager.writeToTag(tag, shareToken);
     }

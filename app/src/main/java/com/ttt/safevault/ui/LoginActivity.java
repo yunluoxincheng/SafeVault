@@ -62,9 +62,11 @@ public class LoginActivity extends AppCompatActivity {
     private boolean isPasswordVisible = false;
     private boolean isConfirmPasswordVisible = false;
     private boolean fromAutofill = false;  // 是否从自动填充跳转过来
+    private boolean fromAutofillSave = false;  // 是否从自动填充保存跳转过来
     private boolean isCloudLoginMode = false;  // 是否为云端登录模式
     private boolean isRegisterMode = false;  // 是否为注册模式
-    
+    private boolean biometricAutoTriggered = false;  // 是否已自动触发生物识别
+
     // 生物识别认证助手
     private BiometricAuthHelper biometricAuthHelper;
 
@@ -76,12 +78,19 @@ public class LoginActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_login);
 
-        // 防止截图
-        getWindow().addFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE);
+        // 防止截图 - 根据 SecurityConfig 设置决定
+        com.ttt.safevault.security.SecurityConfig securityConfig =
+            new com.ttt.safevault.security.SecurityConfig(this);
+        if (securityConfig.isScreenshotProtectionEnabled()) {
+            getWindow().addFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE);
+        } else {
+            getWindow().clearFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE);
+        }
         
         // 检查是否从自动填充跳转过来
         if (getIntent() != null) {
             fromAutofill = getIntent().getBooleanExtra("from_autofill", false);
+            fromAutofillSave = getIntent().getBooleanExtra("from_autofill_save", false);
         }
 
         // 获取BackendService实例
@@ -119,6 +128,14 @@ public class LoginActivity extends AppCompatActivity {
         progressBar = findViewById(R.id.progress_bar);
         confirmPasswordSection = findViewById(R.id.confirm_password_section);
         cloudLoginSection = findViewById(R.id.cloud_login_section);
+
+        // 设置密码输入框默认图标为闭眼
+        if (passwordLayout != null) {
+            passwordLayout.setEndIconDrawable(R.drawable.ic_visibility);
+        }
+        if (confirmPasswordLayout != null) {
+            confirmPasswordLayout.setEndIconDrawable(R.drawable.ic_visibility);
+        }
     }
 
     private void setupObservers() {
@@ -154,6 +171,14 @@ public class LoginActivity extends AppCompatActivity {
         viewModel.canUseBiometric.observe(this, canUse -> {
             if (canUse != null && biometricButton != null) {
                 biometricButton.setVisibility(canUse ? View.VISIBLE : View.GONE);
+
+                // 如果可以使用生物识别且未自动触发过，则自动触发生物识别验证
+                // 条件：不是初始化状态 + 不是云端登录模式 + 用户已启用生物识别
+                if (canUse && !biometricAutoTriggered && !isInitializing && !isCloudLoginMode) {
+                    biometricAutoTriggered = true;
+                    // 延迟一小段时间触发，确保UI已完全加载
+                    biometricButton.postDelayed(() -> performBiometricAuthentication(), 300);
+                }
             }
         });
 
@@ -375,8 +400,8 @@ public class LoginActivity extends AppCompatActivity {
     }
 
     private void navigateToMain() {
-        if (fromAutofill) {
-            // 从自动填充跳转过来，返回结果
+        if (fromAutofill || fromAutofillSave) {
+            // 从自动填充或自动填充保存跳转过来，返回结果
             setResult(RESULT_OK);
             finish();
         } else {
@@ -398,13 +423,13 @@ public class LoginActivity extends AppCompatActivity {
             // 显示密码
             passwordInput.setInputType(android.text.InputType.TYPE_CLASS_TEXT |
                     android.text.InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD);
-            passwordLayout.setEndIconDrawable(R.drawable.ic_visibility);
+            passwordLayout.setEndIconDrawable(R.drawable.ic_visibility_off);
             passwordLayout.setEndIconContentDescription(getString(R.string.hide_password));
         } else {
             // 隐藏密码
             passwordInput.setInputType(android.text.InputType.TYPE_CLASS_TEXT |
                     android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
-            passwordLayout.setEndIconDrawable(R.drawable.ic_visibility_off);
+            passwordLayout.setEndIconDrawable(R.drawable.ic_visibility);
             passwordLayout.setEndIconContentDescription(getString(R.string.show_password));
         }
 
@@ -510,12 +535,27 @@ public class LoginActivity extends AppCompatActivity {
     @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        
+
         if (requestCode == PERMISSION_REQUEST_CODE) {
             // 权限已处理，生物识别权限检查完成
             if (biometricButton != null) {
                 boolean biometricSupported = BiometricAuthHelper.isBiometricSupported(this);
                 biometricButton.setVisibility(biometricSupported ? View.VISIBLE : View.GONE);
+            }
+        }
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // 每次返回登录页面时，如果条件满足则自动触发生物识别验证
+        // 条件：可以使用生物识别 + 不是初始化状态 + 不是云端登录模式
+        Boolean canUseBiometric = viewModel.canUseBiometric.getValue();
+        if (canUseBiometric != null && canUseBiometric && !isInitializing && !isCloudLoginMode && !biometricAutoTriggered) {
+            biometricAutoTriggered = true;
+            // 延迟一小段时间触发，确保UI已完全恢复
+            if (biometricButton != null) {
+                biometricButton.postDelayed(() -> performBiometricAuthentication(), 300);
             }
         }
     }
