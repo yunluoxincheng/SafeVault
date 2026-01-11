@@ -15,6 +15,8 @@ import androidx.lifecycle.Lifecycle;
 import androidx.lifecycle.LifecycleObserver;
 import androidx.lifecycle.OnLifecycleEvent;
 
+import com.ttt.safevault.ServiceLocator;
+import com.ttt.safevault.model.BackendService;
 import com.ttt.safevault.utils.ClipboardManager;
 
 import java.util.List;
@@ -25,6 +27,7 @@ import java.util.concurrent.TimeUnit;
 /**
  * 安全管理器
  * 负责管理应用的安全措施，包括防截图、自动锁定等
+ * 使用单例模式确保整个应用共享同一个实例
  */
 public class SecurityManager implements LifecycleObserver {
 
@@ -32,14 +35,43 @@ public class SecurityManager implements LifecycleObserver {
     private static final int AUTO_LOCK_DELAY = 30000; // 30秒
     private static final int CLIPBOARD_CLEAR_DELAY = 30000; // 30秒
 
+    // 单例实例
+    private static volatile SecurityManager instance;
+
     private final Context context;
     private final ClipboardManager clipboardManager;
     private ScheduledExecutorService autoLockExecutor;
     private long lastInteractionTime;
     private boolean isLocked = false;
 
-    public SecurityManager(@NonNull Context context) {
-        this.context = context.getApplicationContext();
+    /**
+     * 获取单例实例
+     */
+    public static SecurityManager getInstance(@NonNull Context context) {
+        if (instance == null) {
+            synchronized (SecurityManager.class) {
+                if (instance == null) {
+                    instance = new SecurityManager(context.getApplicationContext());
+                }
+            }
+        }
+        return instance;
+    }
+
+    /**
+     * 重置单例实例（用于测试或重新初始化）
+     */
+    public static void resetInstance() {
+        synchronized (SecurityManager.class) {
+            if (instance != null) {
+                instance.stopAutoLockMonitoring();
+                instance = null;
+            }
+        }
+    }
+
+    private SecurityManager(@NonNull Context context) {
+        this.context = context;
         this.clipboardManager = new ClipboardManager(this.context);
         this.lastInteractionTime = System.currentTimeMillis();
     }
@@ -147,9 +179,31 @@ public class SecurityManager implements LifecycleObserver {
 
     /**
      * 检查是否应该自动锁定
+     * 使用用户在设置中配置的自动锁定超时时间
      */
     public boolean shouldAutoLock() {
-        return !isLocked && (System.currentTimeMillis() - lastInteractionTime > AUTO_LOCK_DELAY);
+        if (isLocked) {
+            return false;
+        }
+
+        // 获取用户配置的自动锁定超时时间
+        SecurityConfig config = new SecurityConfig(context);
+
+        // 检查自动锁定是否启用
+        if (!config.isAutoLockEnabled()) {
+            return false;
+        }
+
+        // 获取配置的超时时间（毫秒）
+        long timeoutMillis = config.getAutoLockTimeoutMillisForMode();
+
+        // 如果设置为从不锁定，返回false
+        if (timeoutMillis == Long.MAX_VALUE) {
+            return false;
+        }
+
+        // 检查是否超时
+        return (System.currentTimeMillis() - lastInteractionTime > timeoutMillis);
     }
 
     /**
@@ -157,8 +211,21 @@ public class SecurityManager implements LifecycleObserver {
      */
     public void lock() {
         isLocked = true;
+
         // 清理剪贴板
         clipboardManager.clearClipboard();
+
+        // 清除BackendService中的会话密钥，确保自动填充服务也能正确识别锁定状态
+        try {
+            BackendService backendService = ServiceLocator.getInstance().getBackendService();
+            if (backendService != null) {
+                backendService.lock();
+                android.util.Log.d(TAG, "SecurityManager: 已调用BackendService.lock()清除会话密钥");
+            }
+        } catch (Exception e) {
+            android.util.Log.e(TAG, "SecurityManager: 调用BackendService.lock()失败", e);
+        }
+
         // 触发锁定回调
         if (lockListener != null) {
             lockListener.onLocked();

@@ -42,13 +42,16 @@ public class FillResponseBuilder {
      * @param request  AutofillRequest对象
      * @param credentials 匹配的凭据列表
      * @param authIntentSender 认证IntentSender（当应用未解锁时）
+     * @param isLocked 应用是否已锁定
      * @return FillResponse对象
      */
-    public FillResponse buildResponse(AutofillRequest request, 
+    public FillResponse buildResponse(AutofillRequest request,
                                       List<PasswordItem> credentials,
-                                      IntentSender authIntentSender) {
+                                      IntentSender authIntentSender,
+                                      boolean isLocked) {
         logDebug("=== 开始构建 FillResponse ===");
         logDebug("凭据数量: " + (credentials != null ? credentials.size() : 0));
+        logDebug("应用是否锁定: " + isLocked);
 
         if (request == null) {
             logDebug("AutofillRequest为null");
@@ -57,64 +60,43 @@ public class FillResponseBuilder {
 
         FillResponse.Builder responseBuilder = new FillResponse.Builder();
 
-        // 如果需要认证（应用未解锁）
-        if (authIntentSender != null) {
-            logDebug("需要认证，设置认证IntentSender");
-            
-            // 创建认证提示的RemoteViews
-            RemoteViews authPresentation = createAuthPresentation();
-            
-            // 创建一个Dataset作为认证入口
-            Dataset.Builder authDatasetBuilder = new Dataset.Builder(authPresentation);
-            
-            // 为所有字段设置空值（仅用于触发认证）
-            for (AutofillId usernameId : request.getUsernameIds()) {
-                authDatasetBuilder.setValue(usernameId, null, authPresentation);
+        // 1. 如果需要认证（应用未解锁），只显示密码库选项
+        if (authIntentSender != null && isLocked) {
+            logDebug("应用已锁定，仅显示密码库选项");
+            logDebug("不会添加任何凭据Dataset，只添加'密码库已锁定'选项");
+
+            // 添加"转到我的密码库"选项
+            Dataset vaultDataset = createVaultDataset(request, authIntentSender, isLocked);
+            if (vaultDataset != null) {
+                responseBuilder.addDataset(vaultDataset);
+                logDebug("添加密码库选项Dataset");
             }
-            for (AutofillId passwordId : request.getPasswordIds()) {
-                authDatasetBuilder.setValue(passwordId, null, authPresentation);
-            }
-            
-            // 设置认证Intent
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                authDatasetBuilder.setAuthentication(authIntentSender);
-            }
-            
-            responseBuilder.addDataset(authDatasetBuilder.build());
-            
+
             // 添加SaveInfo
             SaveInfo saveInfo = createSaveInfo(request);
             if (saveInfo != null) {
                 responseBuilder.setSaveInfo(saveInfo);
             }
-            
+
             return responseBuilder.build();
         }
 
-        // 如果没有匹配的凭据
-        if (credentials == null || credentials.isEmpty()) {
-            logDebug("没有匹配的凭据，仍然提供保存选项");
-            
-            // 即使没有匹配的凭据，也要添加SaveInfo以支持保存新凭据
-            SaveInfo saveInfo = createSaveInfo(request);
-            if (saveInfo != null) {
-                responseBuilder.setSaveInfo(saveInfo);
-                logDebug("已添加SaveInfo，用户可以保存新凭据");
-                return responseBuilder.build();
+        // 2. 为每个凭据创建Dataset（在密码库选项之前添加）
+        if (credentials != null && !credentials.isEmpty()) {
+            for (PasswordItem credential : credentials) {
+                Dataset dataset = createDataset(request, credential);
+                if (dataset != null) {
+                    responseBuilder.addDataset(dataset);
+                    logDebug("添加Dataset: " + credential.getTitle());
+                }
             }
-            
-            // 如果无法创建SaveInfo（没有密码字段），返回null
-            logDebug("无法创建SaveInfo，返回null");
-            return null;
         }
 
-        // 为每个凭据创建Dataset
-        for (PasswordItem credential : credentials) {
-            Dataset dataset = createDataset(request, credential);
-            if (dataset != null) {
-                responseBuilder.addDataset(dataset);
-                logDebug("添加Dataset: " + credential.getTitle());
-            }
+        // 3. 最后添加"转到我的密码库"选项（放在所有选项的最下面）
+        Dataset vaultDataset = createVaultDataset(request, authIntentSender, isLocked);
+        if (vaultDataset != null) {
+            responseBuilder.addDataset(vaultDataset);
+            logDebug("添加密码库选项Dataset（在最后）");
         }
 
         // 添加SaveInfo以支持保存新凭据
@@ -124,6 +106,77 @@ public class FillResponseBuilder {
         }
 
         return responseBuilder.build();
+    }
+
+    /**
+     * 创建"转到我的密码库"选项的Dataset
+     */
+    private Dataset createVaultDataset(AutofillRequest request, IntentSender authIntentSender, boolean isLocked) {
+        RemoteViews presentation = createVaultPresentation(isLocked);
+        Dataset.Builder datasetBuilder = new Dataset.Builder(presentation);
+
+        boolean hasAnyField = false;
+
+        // 为用户名字段设置空值（仅用于触发跳转）
+        for (AutofillId usernameId : request.getUsernameIds()) {
+            datasetBuilder.setValue(usernameId, null, presentation);
+            hasAnyField = true;
+        }
+
+        // 为密码字段设置空值（仅用于触发跳转）
+        for (AutofillId passwordId : request.getPasswordIds()) {
+            datasetBuilder.setValue(passwordId, null, presentation);
+            hasAnyField = true;
+        }
+
+        // 确保至少有一个字段被设置
+        if (!hasAnyField) {
+            logDebug("没有字段可设置");
+            return null;
+        }
+
+        // 设置认证Intent（用于跳转到密码选择页面）
+        if (authIntentSender != null) {
+            logDebug("设置认证Intent: isLocked=" + isLocked);
+            datasetBuilder.setAuthentication(authIntentSender);
+        }
+
+        return datasetBuilder.build();
+    }
+
+    /**
+     * 创建"转到我的密码库"选项的Presentation视图
+     */
+    private RemoteViews createVaultPresentation(boolean isLocked) {
+        RemoteViews presentation = new RemoteViews(
+                context.getPackageName(),
+                R.layout.autofill_auth_item
+        );
+
+        // 设置标题为SafeVault
+        presentation.setTextViewText(
+                R.id.autofill_auth_title,
+                context.getString(R.string.app_name)
+        );
+
+        // 设置状态文字（锁定时显示"密码库已锁定"，未锁定时显示"转到我的密码库"）
+        String statusText = isLocked
+                ? context.getString(R.string.autofill_vault_locked)
+                : context.getString(R.string.autofill_open_vault);
+        presentation.setTextViewText(R.id.autofill_auth_text, statusText);
+
+        return presentation;
+    }
+
+    /**
+     * 构建FillResponse（旧方法，保留以兼容）
+     * @deprecated 使用 buildResponse(request, credentials, authIntentSender, isLocked) 替代
+     */
+    @Deprecated
+    public FillResponse buildResponse(AutofillRequest request,
+                                      List<PasswordItem> credentials,
+                                      IntentSender authIntentSender) {
+        return buildResponse(request, credentials, authIntentSender, authIntentSender != null);
     }
 
     /**

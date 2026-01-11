@@ -25,8 +25,8 @@ public abstract class BaseActivity extends AppCompatActivity {
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // 初始化安全管理器
-        securityManager = new SecurityManager(this);
+        // 获取安全管理器单例
+        securityManager = SecurityManager.getInstance(this);
         // TODO: 获取BackendService实例
         // backendService = Injector.get().getBackendService();
 
@@ -60,10 +60,9 @@ public abstract class BaseActivity extends AppCompatActivity {
     @Override
     protected void onPause() {
         super.onPause();
-        // 记录进入后台的时间
-        if (backendService != null) {
-            backendService.recordBackgroundTime();
-        }
+        // 注意：不再在这里记录后台时间
+        // 因为在 Activity 之间切换时也会触发 onPause
+        // 改为使用 Application 级别的 ProcessLifecycleOwner 来跟踪应用前后台状态
     }
 
     @Override

@@ -154,11 +154,16 @@ public class CryptoManager {
     public boolean isUnlocked() {
         // 先检查内存中的状态
         if (isUnlocked && masterKey != null) {
+            Log.d(TAG, "isUnlocked: 内存中已解锁 (isUnlocked=" + isUnlocked + ", masterKey exists)");
             return true;
         }
-        
+
+        Log.d(TAG, "isUnlocked: 内存中未锁定，尝试恢复会话...");
+
         // 尝试从持久化存储恢复会话密钥
-        return tryRestoreSession();
+        boolean restored = tryRestoreSession();
+        Log.d(TAG, "isUnlocked: 会话恢复结果=" + restored + ", 最终状态=" + (isUnlocked && masterKey != null));
+        return restored;
     }
     
     /**

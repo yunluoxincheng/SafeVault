@@ -67,7 +67,7 @@ public class ServiceLocator {
         if (securityManager == null) {
             synchronized (this) {
                 if (securityManager == null) {
-                    securityManager = new SecurityManager(applicationContext);
+                    securityManager = SecurityManager.getInstance(applicationContext);
                 }
             }
         }

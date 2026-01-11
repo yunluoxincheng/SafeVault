@@ -364,7 +364,12 @@
     <string name="autofill_unlock_safevault">解锁 SafeVault</string>
     <string name="autofill_open_safevault">打开 SafeVault</string>
     <string name="autofill_no_credentials">没有匹配的凭据</string>
-    
+    <string name="autofill_vault_locked">密码库已锁定</string>
+    <string name="autofill_open_vault">转到我的密码库</string>
+    <string name="autofill_select_credential">选择密码</string>
+    <string name="autofill_no_credentials_for_site">此网站/应用暂无保存的密码</string>
+    <string name="autofill_add_new_credential">添加新密码</string>
+
     <!-- 自动填充保存凭据 -->
     <string name="autofill_save_credential">保存凭据</string>
     <string name="autofill_save_success">凭据已保存</string>

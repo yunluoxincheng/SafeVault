@@ -1,5 +1,6 @@
 package com.ttt.safevault.ui.share;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -224,8 +225,10 @@ public class ShareListFragment extends Fragment {
     }
 
     private void viewShareDetails(PasswordShare share) {
-        // TODO: 导航到分享详情页面
-        Toast.makeText(requireContext(), "查看分享: " + share.getShareId(), Toast.LENGTH_SHORT).show();
+        // 跳转到接收分享页面查看详情
+        Intent intent = new Intent(requireContext(), ReceiveShareActivity.class);
+        intent.putExtra("SHARE_ID", share.getShareId());
+        startActivity(intent);
     }
 
     private void confirmRevokeShare(PasswordShare share) {

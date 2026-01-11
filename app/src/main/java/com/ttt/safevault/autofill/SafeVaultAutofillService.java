@@ -33,6 +33,7 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
@@ -45,7 +46,7 @@ import java.util.concurrent.Executors;
  */
 public class SafeVaultAutofillService extends AutofillService {
     private static final String TAG = "SafeVaultAutofillService";
-    
+
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private BackendService backendService;
     private SecurityConfig securityConfig;
@@ -54,10 +55,10 @@ public class SafeVaultAutofillService extends AutofillService {
     public void onCreate() {
         super.onCreate();
         logDebug("=== SafeVaultAutofillService onCreate ===");
-        
+
         // 初始化BackendService
         backendService = ServiceLocator.getInstance().getBackendService();
-        
+
         // 初始化安全配置
         securityConfig = new SecurityConfig();
     }
@@ -75,7 +76,7 @@ public class SafeVaultAutofillService extends AutofillService {
     }
 
     @Override
-    public void onFillRequest(FillRequest request, CancellationSignal cancellationSignal, 
+    public void onFillRequest(FillRequest request, CancellationSignal cancellationSignal,
                              FillCallback callback) {
         logDebug("=== 收到 FillRequest ===");
 
@@ -103,7 +104,7 @@ public class SafeVaultAutofillService extends AutofillService {
                     callback.onSuccess(null);
                     return;
                 }
-                
+
                 // 安全检查：检查是否在阻止列表中
                 if (securityConfig.isBlocked(packageName)) {
                     logDebug("应用在阻止列表中: " + packageName);
@@ -119,39 +120,55 @@ public class SafeVaultAutofillService extends AutofillService {
                     return;
                 }
 
+                // 不再自动检查后台超时并锁定
+                // 信任主应用的锁定状态管理，避免自动填充服务错误地认为应用已锁定
+                // checkBackgroundTimeoutAndLock();
+
                 // 检查应用是否已解锁
-                if (backendService == null || !backendService.isUnlocked()) {
-                    logDebug("应用未解锁，需要认证");
-                    
-                    // 创建认证Intent（打开LoginActivity）
-                    Intent authIntent = new Intent(this, LoginActivity.class);
-                    authIntent.putExtra("autofill_request", true);
-                    authIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-                    
-                    PendingIntent pendingIntent = PendingIntent.getActivity(
-                            this, 
-                            0, 
-                            authIntent,
-                            PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT
-                    );
-                    
-                    IntentSender intentSender = pendingIntent.getIntentSender();
-                    
-                    // 构建带认证的响应
-                    FillResponseBuilder builder = new FillResponseBuilder(this);
-                    FillResponse response = builder.buildResponse(autofillRequest, null, intentSender);
-                    
-                    callback.onSuccess(response);
-                    return;
+                boolean isLocked = (backendService == null || !backendService.isUnlocked());
+                logDebug("应用锁定状态检查: backendService=" + (backendService != null ? "存在" : "null") +
+                        ", isUnlocked=" + (backendService != null ? backendService.isUnlocked() : "N/A") +
+                        ", isLocked=" + isLocked);
+                IntentSender authIntentSender = null;
+
+                // 无论锁定与否，都使用AutofillCredentialSelectorActivity作为认证Intent
+                // 锁定状态下，该Activity会先要求用户验证身份，验证成功后显示凭据列表
+                // 用户选择凭据后，直接返回Dataset给系统进行自动填充
+                Intent selectorIntent = new Intent(this, com.ttt.safevault.ui.autofill.AutofillCredentialSelectorActivity.class);
+                selectorIntent.putExtra("domain", parsedData.getDomain());
+                selectorIntent.putExtra("packageName", parsedData.getPackageName());
+                selectorIntent.putExtra("title", parsedData.getTitle());
+                selectorIntent.putExtra("isWeb", parsedData.isWeb());
+                // 传递AutofillId信息
+                selectorIntent.putParcelableArrayListExtra("username_ids", new ArrayList<>(autofillRequest.getUsernameIds()));
+                selectorIntent.putParcelableArrayListExtra("password_ids", new ArrayList<>(autofillRequest.getPasswordIds()));
+                // 如果锁定，设置需要认证标志
+                if (isLocked) {
+                    selectorIntent.putExtra("needs_auth", true);
+                    logDebug("应用未解锁，设置needs_auth=true");
+                } else {
+                    logDebug("应用已解锁，直接显示凭据选择器");
                 }
 
-                // 匹配凭据
-                AutofillMatcher matcher = new AutofillMatcher(backendService);
-                List<PasswordItem> credentials = matcher.matchCredentials(autofillRequest);
+                PendingIntent pendingIntent = PendingIntent.getActivity(
+                        this,
+                        0,
+                        selectorIntent,
+                        PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT
+                );
 
-                // 构建响应
+                authIntentSender = pendingIntent.getIntentSender();
+
+                // 匹配凭据（如果已解锁）
+                List<PasswordItem> credentials = null;
+                if (!isLocked) {
+                    AutofillMatcher matcher = new AutofillMatcher(backendService);
+                    credentials = matcher.matchCredentials(autofillRequest);
+                }
+
+                // 构建响应（使用新的buildResponse方法）
                 FillResponseBuilder builder = new FillResponseBuilder(this);
-                FillResponse response = builder.buildResponse(autofillRequest, credentials, null);
+                FillResponse response = builder.buildResponse(autofillRequest, credentials, authIntentSender, isLocked);
 
                 if (response != null) {
                     logDebug("FillResponse构建成功");
@@ -355,6 +372,46 @@ public class SafeVaultAutofillService extends AutofillService {
             }
         }
         return null;
+    }
+
+    /**
+     * 检查后台超时并自动锁定
+     * 当应用进入后台超过设定时间后，自动锁定并清除会话密钥
+     */
+    private void checkBackgroundTimeoutAndLock() {
+        if (backendService == null) {
+            return;
+        }
+
+        try {
+            // 获取后台时间
+            long backgroundTime = backendService.getBackgroundTime();
+            if (backgroundTime == 0) {
+                // 应用没有进入过后台
+                return;
+            }
+
+            // 获取自动锁定超时时间（毫秒）
+            int timeoutSeconds = backendService.getAutoLockTimeout();
+            if (timeoutSeconds < 0) {
+                // 从不锁定
+                return;
+            }
+
+            long timeoutMillis = timeoutSeconds * 1000L;
+            long currentTime = System.currentTimeMillis();
+            long elapsedTime = currentTime - backgroundTime;
+
+            logDebug("后台时间检查: 后台时长=" + (elapsedTime / 1000) + "秒, 超时时间=" + timeoutSeconds + "秒");
+
+            // 检查是否超时
+            if (elapsedTime > timeoutMillis) {
+                logDebug("后台超时，自动锁定应用");
+                backendService.lock(); // 锁定并清除会话密钥
+            }
+        } catch (Exception e) {
+            logDebug("检查后台超时失败: " + e.getMessage());
+        }
     }
 
     /**

@@ -5,6 +5,8 @@ import android.content.Intent;
 import android.os.Build;
 import android.os.Bundle;
 import androidx.core.splashscreen.SplashScreen;
+
+import java.util.ArrayList;
 import android.text.Editable;
 import android.text.TextUtils;
 import android.text.TextWatcher;
@@ -86,7 +88,7 @@ public class LoginActivity extends AppCompatActivity {
         } else {
             getWindow().clearFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE);
         }
-        
+
         // 检查是否从自动填充跳转过来
         if (getIntent() != null) {
             fromAutofill = getIntent().getBooleanExtra("from_autofill", false);
@@ -173,7 +175,7 @@ public class LoginActivity extends AppCompatActivity {
                 biometricButton.setVisibility(canUse ? View.VISIBLE : View.GONE);
 
                 // 如果可以使用生物识别且未自动触发过，则自动触发生物识别验证
-                // 条件：不是初始化状态 + 不是云端登录模式 + 用户已启用生物识别
+                // 条件：不是初始化状态 + 不是云端登录模式
                 if (canUse && !biometricAutoTriggered && !isInitializing && !isCloudLoginMode) {
                     biometricAutoTriggered = true;
                     // 延迟一小段时间触发，确保UI已完全加载

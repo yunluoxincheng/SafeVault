@@ -38,7 +38,9 @@ public class AutofillMatcher {
      */
     public List<PasswordItem> matchCredentials(AutofillRequest request) {
         logDebug("=== 开始匹配凭据 ===");
-        logDebug("请求信息: " + request);
+        logDebug("请求信息: isWeb=" + request.isWeb() +
+                ", domain=" + request.getDomain() +
+                ", packageName=" + request.getPackageName());
 
         if (backendService == null || !backendService.isUnlocked()) {
             logDebug("BackendService未解锁");
@@ -56,15 +58,30 @@ public class AutofillMatcher {
 
         List<PasswordItem> matchedItems = new ArrayList<>();
 
-        // Web页面匹配
+        // 优先使用域名匹配（Web页面）
         if (request.isWeb() && request.getDomain() != null) {
             matchedItems = matchByDomain(allItems, request.getDomain());
             logDebug("域名匹配结果: " + matchedItems.size() + " 项");
         }
-        // 原生应用匹配
+        // 原生应用匹配（或者作为备用匹配）
         else if (request.getPackageName() != null) {
             matchedItems = matchByPackageName(allItems, request.getPackageName());
             logDebug("包名匹配结果: " + matchedItems.size() + " 项");
+        }
+
+        // 如果没有匹配到任何结果，尝试备用匹配
+        if (matchedItems.isEmpty()) {
+            logDebug("没有匹配到结果，尝试备用匹配");
+            // 如果有域名，尝试用域名匹配
+            if (request.getDomain() != null) {
+                matchedItems = matchByDomain(allItems, request.getDomain());
+                logDebug("备用域名匹配结果: " + matchedItems.size() + " 项");
+            }
+            // 如果有包名，尝试用包名匹配
+            if (matchedItems.isEmpty() && request.getPackageName() != null) {
+                matchedItems = matchByPackageName(allItems, request.getPackageName());
+                logDebug("备用包名匹配结果: " + matchedItems.size() + " 项");
+            }
         }
 
         return matchedItems;

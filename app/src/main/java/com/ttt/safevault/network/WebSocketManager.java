@@ -126,8 +126,9 @@ public class WebSocketManager {
     private void handleMessage(String message) {
         try {
             // 简单解析消息类型
-            if (message.contains("\"type\":\"SHARE_NOTIFICATION\"") || 
+            if (message.contains("\"type\":\"SHARE_NOTIFICATION\"") ||
                 message.contains("\"type\":\"NEW_SHARE\"") ||
+                message.contains("\"type\":\"NEW_DIRECT_SHARE\"") ||
                 message.contains("\"type\":\"SHARE_REVOKED\"")) {
                 ShareNotificationMessage notification = gson.fromJson(message, ShareNotificationMessage.class);
                 if (eventListener != null) {

@@ -1,12 +1,18 @@
 package com.ttt.safevault.dto;
 
+import com.google.gson.annotations.SerializedName;
+
 /**
  * 密码数据DTO
  */
 public class PasswordData {
     private String title;
     private String username;
+
+    // 后端使用 encryptedPassword，前端使用 password 作为别名
+    @SerializedName("encryptedPassword")
     private String password;
+
     private String url;
     private String notes;
 

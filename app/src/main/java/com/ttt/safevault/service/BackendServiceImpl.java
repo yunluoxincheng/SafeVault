@@ -1121,13 +1121,38 @@ public class BackendServiceImpl implements BackendService {
     @Override
     public void saveCloudShare(String shareId) {
         try {
+            // 先获取分享数据
+            com.ttt.safevault.dto.response.ReceivedShareResponse response =
+                retrofitClient.getShareServiceApi()
+                    .receiveShare(shareId)
+                    .blockingFirst();
+
+            // 告知后端已保存
             retrofitClient.getShareServiceApi()
                 .saveSharedPassword(shareId)
                 .blockingSubscribe();
-            
-            Log.d(TAG, "Cloud share saved: " + shareId);
+
+            // 将密码数据保存到本地
+            if (response != null && response.getPasswordData() != null) {
+                com.ttt.safevault.dto.PasswordData passwordData = response.getPasswordData();
+
+                // 创建 PasswordItem 并保存到本地
+                PasswordItem item = new PasswordItem();
+                item.setTitle(passwordData.getTitle() != null ? passwordData.getTitle() : "未命名密码");
+                item.setUsername(passwordData.getUsername());
+                item.setPassword(passwordData.getPassword());
+                item.setUrl(passwordData.getUrl());
+                item.setNotes(passwordData.getNotes());
+
+                saveItem(item);
+
+                Log.d(TAG, "Cloud share saved to local: " + shareId);
+            } else {
+                Log.e(TAG, "Failed to save cloud share: invalid response");
+            }
         } catch (Exception e) {
             Log.e(TAG, "Failed to save cloud share", e);
+            throw new RuntimeException("保存云端分享失败: " + e.getMessage());
         }
     }
 

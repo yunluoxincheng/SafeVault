@@ -170,6 +170,15 @@
             android:screenOrientation="portrait"
             android:theme="@style/Theme.SafeVault.NoActionBar" />
 
+        <!-- AutofillCredentialSelectorActivity (密码选择页面) -->
+        <activity
+            android:name=".ui.autofill.AutofillCredentialSelectorActivity"
+            android:exported="false"
+            android:launchMode="singleTop"
+            android:taskAffinity=""
+            android:screenOrientation="portrait"
+            android:theme="@style/Theme.SafeVault.NoActionBar" />
+
         <!-- 分享通知服务 -->
         <service
             android:name=".service.ShareNotificationService"

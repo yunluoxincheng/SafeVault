@@ -182,22 +182,28 @@ public class ShareActivity extends AppCompatActivity {
         // 观察分享成功
         viewModel.shareSuccess.observe(this, success -> {
             if (success) {
+                // 用户对用户分享（直接通知接收方）或附近用户分享，直接返回
+                if (selectedTransmissionMethod == TransmissionMethod.CLOUD_USER
+                        || selectedTransmissionMethod == TransmissionMethod.CLOUD_NEARBY) {
+                    Toast.makeText(this, "分享成功，对方将收到通知", Toast.LENGTH_SHORT).show();
+                    finish();
+                    return;
+                }
+
+                // 云端直接分享或离线分享，跳转到分享结果页面
                 viewModel.shareResult.observe(this, shareToken -> {
                     if (shareToken != null) {
-                        // 跳转到分享结果页面
                         Intent intent = new Intent(this, ShareResultActivity.class);
                         intent.putExtra("SHARE_TOKEN", shareToken);
                         intent.putExtra("PASSWORD_ID", passwordId);
                         intent.putExtra("TRANSMISSION_METHOD", selectedTransmissionMethod.name());
 
-                        // 离线分享不再需要分享密码
                         boolean isOfflineShare = selectedTransmissionMethod == TransmissionMethod.QR_CODE
                                 || selectedTransmissionMethod == TransmissionMethod.BLUETOOTH
                                 || selectedTransmissionMethod == TransmissionMethod.NFC;
                         if (isOfflineShare) {
                             intent.putExtra("IS_OFFLINE_SHARE", true);
                         } else {
-                            // 云端分享，传递shareId
                             intent.putExtra("IS_CLOUD_SHARE", true);
                         }
 

@@ -9,6 +9,8 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 
+import com.ttt.safevault.SafeVaultApplication;
+
 import java.util.List;
 
 import androidx.annotation.NonNull;
@@ -508,19 +510,40 @@ public class MainActivity extends AppCompatActivity {
 
     /**
      * 检查应用从后台返回时是否需要锁定
+     * 只在应用真正进入后台（而不是Activity之间切换）时才检查
      */
     private void checkAutoLock() {
+        // 检查应用是否真正进入了后台
+        // 如果应用一直在前台（只是在Activity之间切换），不需要检查锁定
+        SafeVaultApplication app = (SafeVaultApplication) getApplication();
+        if (app.isAppInForeground()) {
+            android.util.Log.d("MainActivity", "应用在前台，不检查自动锁定");
+            return;
+        }
+
         if (backendService != null) {
             long backgroundTime = backendService.getBackgroundTime();
             long autoLockTimeoutMillis = new com.ttt.safevault.security.SecurityConfig(this)
                     .getAutoLockTimeoutMillisForMode();
 
+            android.util.Log.d("MainActivity", "checkAutoLock - backgroundTime=" + backgroundTime +
+                    ", timeout=" + autoLockTimeoutMillis);
+
             if (backgroundTime > 0 && autoLockTimeoutMillis != Long.MAX_VALUE) {
                 long backgroundMillis = System.currentTimeMillis() - backgroundTime;
                 if (backgroundMillis >= autoLockTimeoutMillis) {
                     // 超时，需要重新锁定
+                    android.util.Log.d("MainActivity", "自动锁定超时，跳转登录页面");
                     lockApp();
+                } else {
+                    // 未超时，清除后台时间记录
+                    android.util.Log.d("MainActivity", "未超时，清除后台时间");
+                    backendService.clearBackgroundTime();
                 }
+            } else {
+                // 没有后台时间记录或设置为从不锁定，清除记录
+                android.util.Log.d("MainActivity", "清除后台时间记录");
+                backendService.clearBackgroundTime();
             }
         }
     }
