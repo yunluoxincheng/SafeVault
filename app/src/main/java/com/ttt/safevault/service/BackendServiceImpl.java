@@ -384,12 +384,12 @@ public class BackendServiceImpl implements BackendService {
 
     @Override
     public int getAutoLockTimeout() {
-        // 返回自动锁定模式的超时时间（分钟）
+        // 返回自动锁定模式的超时时间（秒）
         long timeoutMillis = securityConfig.getAutoLockTimeoutMillisForMode();
         if (timeoutMillis == Long.MAX_VALUE) {
             return -1; // 从不锁定
         }
-        return (int) (timeoutMillis / (60 * 1000)); // 转换为分钟
+        return (int) (timeoutMillis / 1000); // 转换为秒
     }
 
     /**

@@ -11,7 +11,9 @@ import com.ttt.safevault.security.SecurityManager;
 
 /**
  * 基础Fragment
- * 所有Fragment都应该继承此类以自动应用安全措施
+ * 提供安全管理器的便捷访问
+ *
+ * 注意：自动锁定功能由 MainActivity 和 SafeVaultApplication 统一处理
  */
 public abstract class BaseFragment extends Fragment {
 
@@ -33,15 +35,6 @@ public abstract class BaseFragment extends Fragment {
 
         // 应用安全措施
         applySecurityMeasures(view);
-    }
-
-    @Override
-    public void onResume() {
-        super.onResume();
-        // 更新最后交互时间
-        if (securityManager != null) {
-            securityManager.updateLastInteraction();
-        }
     }
 
     /**

@@ -120,15 +120,18 @@ public class SafeVaultAutofillService extends AutofillService {
                     return;
                 }
 
-                // 不再自动检查后台超时并锁定
-                // 信任主应用的锁定状态管理，避免自动填充服务错误地认为应用已锁定
-                // checkBackgroundTimeoutAndLock();
+                // 自动填充服务需要主动检查后台超时并锁定
+                // 因为此时 MainActivity 不会启动，onResume() 不会执行
+                checkBackgroundTimeoutAndLock();
 
                 // 检查应用是否已解锁
-                boolean isLocked = (backendService == null || !backendService.isUnlocked());
-                logDebug("应用锁定状态检查: backendService=" + (backendService != null ? "存在" : "null") +
-                        ", isUnlocked=" + (backendService != null ? backendService.isUnlocked() : "N/A") +
-                        ", isLocked=" + isLocked);
+                boolean isUnlockedValue = (backendService != null && backendService.isUnlocked());
+                boolean isLocked = !isUnlockedValue;
+                logDebug("=== 应用锁定状态检查 ===");
+                logDebug("backendService=" + (backendService != null ? "存在" : "null"));
+                logDebug("isUnlocked()=" + isUnlockedValue);
+                logDebug("isLocked=" + isLocked);
+                logDebug("检查完成");
                 IntentSender authIntentSender = null;
 
                 // 无论锁定与否，都使用AutofillCredentialSelectorActivity作为认证Intent
@@ -377,41 +380,64 @@ public class SafeVaultAutofillService extends AutofillService {
     /**
      * 检查后台超时并自动锁定
      * 当应用进入后台超过设定时间后，自动锁定并清除会话密钥
+     *
+     * 注意：此方法在 AutofillService 中调用，因为当用户在其他 App 触发自动填充时，
+     * MainActivity 不会启动，onResume() 不会执行，所以需要在此处主动检查。
      */
     private void checkBackgroundTimeoutAndLock() {
+        logDebug("=== checkBackgroundTimeoutAndLock() 开始 ===");
+
         if (backendService == null) {
+            logDebug("backendService 为 null，无法检查超时");
             return;
         }
 
         try {
-            // 获取后台时间
+            // 获取后台时间戳
             long backgroundTime = backendService.getBackgroundTime();
+            logDebug("后台时间戳: " + backgroundTime);
+
             if (backgroundTime == 0) {
                 // 应用没有进入过后台
+                logDebug("应用未进入过后台，跳过检查");
                 return;
             }
 
             // 获取自动锁定超时时间（毫秒）
-            int timeoutSeconds = backendService.getAutoLockTimeout();
-            if (timeoutSeconds < 0) {
-                // 从不锁定
+            com.ttt.safevault.security.SecurityConfig securityConfig =
+                    new com.ttt.safevault.security.SecurityConfig(this);
+            long autoLockTimeoutMillis = securityConfig.getAutoLockTimeoutMillisForMode();
+
+            // 计算超时时间（秒）用于显示
+            long timeoutSeconds = autoLockTimeoutMillis == Long.MAX_VALUE ? -1 : autoLockTimeoutMillis / 1000;
+
+            logDebug("超时设置: " + timeoutSeconds + " 秒 (" + autoLockTimeoutMillis + " 毫秒)");
+
+            if (autoLockTimeoutMillis == Long.MAX_VALUE) {
+                logDebug("自动锁定模式: 从不锁定");
                 return;
             }
 
-            long timeoutMillis = timeoutSeconds * 1000L;
+            // 计算经过时间
             long currentTime = System.currentTimeMillis();
             long elapsedTime = currentTime - backgroundTime;
-
-            logDebug("后台时间检查: 后台时长=" + (elapsedTime / 1000) + "秒, 超时时间=" + timeoutSeconds + "秒");
+            logDebug("当前时间: " + currentTime);
+            logDebug("后台时长: " + (elapsedTime / 1000) + " 秒");
 
             // 检查是否超时
-            if (elapsedTime > timeoutMillis) {
-                logDebug("后台超时，自动锁定应用");
+            if (elapsedTime >= autoLockTimeoutMillis) {
+                logDebug("*** 后台超时，执行自动锁定 ***");
                 backendService.lock(); // 锁定并清除会话密钥
+                logDebug("锁定完成");
+            } else {
+                logDebug("未超时，无需锁定");
             }
         } catch (Exception e) {
             logDebug("检查后台超时失败: " + e.getMessage());
+            e.printStackTrace();
         }
+
+        logDebug("=== checkBackgroundTimeoutAndLock() 结束 ===");
     }
 
     /**

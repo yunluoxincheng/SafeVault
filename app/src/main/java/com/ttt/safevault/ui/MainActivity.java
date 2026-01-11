@@ -460,20 +460,11 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        android.util.Log.d("MainActivity", "onResume");
+        android.util.Log.d("MainActivity", "=== onResume ===");
+        android.util.Log.d("MainActivity", "当前后台时间: " + (backendService != null ? backendService.getBackgroundTime() : "backendService=null"));
+
         // 应用从后台返回时，检查是否需要重新锁定
         checkAutoLock();
-    }
-
-    @Override
-    protected void onUserLeaveHint() {
-        super.onUserLeaveHint();
-        android.util.Log.d("MainActivity", "onUserLeaveHint - 记录后台时间");
-        // 用户主动离开应用时记录时间（按Home键、切换应用等）
-        // 注意：这个方法不会在Activity内部导航时调用
-        if (backendService != null) {
-            backendService.recordBackgroundTime();
-        }
     }
 
     /**
@@ -511,29 +502,37 @@ public class MainActivity extends AppCompatActivity {
     /**
      * 检查应用从后台返回时是否需要锁定
      * 只在应用真正进入后台（而不是Activity之间切换）时才检查
+     *
+     * 注意：onResume() 在 onActivityStarted() 之后调用，此时 isAppInForeground 已经被设为 true。
+     * 因此这里直接检查后台时间，通过 backgroundTime 是否为 0 来判断是否需要锁定。
      */
     private void checkAutoLock() {
-        // 检查应用是否真正进入了后台
-        // 如果应用一直在前台（只是在Activity之间切换），不需要检查锁定
-        SafeVaultApplication app = (SafeVaultApplication) getApplication();
-        if (app.isAppInForeground()) {
-            android.util.Log.d("MainActivity", "应用在前台，不检查自动锁定");
-            return;
-        }
+        android.util.Log.d("MainActivity", "=== checkAutoLock() 开始 ===");
+
+        // 通过检查后台时间来判断是否需要锁定
+        // 如果 backgroundTime == 0，说明应用没有进入过后台，不需要检查锁定
 
         if (backendService != null) {
             long backgroundTime = backendService.getBackgroundTime();
             long autoLockTimeoutMillis = new com.ttt.safevault.security.SecurityConfig(this)
                     .getAutoLockTimeoutMillisForMode();
 
-            android.util.Log.d("MainActivity", "checkAutoLock - backgroundTime=" + backgroundTime +
-                    ", timeout=" + autoLockTimeoutMillis);
+            // 计算超时时间（秒）用于显示
+            long timeoutSeconds = autoLockTimeoutMillis == Long.MAX_VALUE ? -1 : autoLockTimeoutMillis / 1000;
 
-            if (backgroundTime > 0 && autoLockTimeoutMillis != Long.MAX_VALUE) {
+            android.util.Log.d("MainActivity", "后台时间戳: " + backgroundTime);
+            android.util.Log.d("MainActivity", "当前时间戳: " + System.currentTimeMillis());
+            android.util.Log.d("MainActivity", "超时设置: " + timeoutSeconds + " 秒 (" + autoLockTimeoutMillis + " 毫秒)");
+
+            if (backgroundTime > 0) {
                 long backgroundMillis = System.currentTimeMillis() - backgroundTime;
-                if (backgroundMillis >= autoLockTimeoutMillis) {
+                android.util.Log.d("MainActivity", "后台时长: " + (backgroundMillis / 1000) + " 秒");
+
+                if (autoLockTimeoutMillis == Long.MAX_VALUE) {
+                    android.util.Log.d("MainActivity", "自动锁定模式: 从不锁定");
+                } else if (backgroundMillis >= autoLockTimeoutMillis) {
                     // 超时，需要重新锁定
-                    android.util.Log.d("MainActivity", "自动锁定超时，跳转登录页面");
+                    android.util.Log.d("MainActivity", "*** 自动锁定超时，执行锁定 ***");
                     lockApp();
                 } else {
                     // 未超时，清除后台时间记录
@@ -541,16 +540,21 @@ public class MainActivity extends AppCompatActivity {
                     backendService.clearBackgroundTime();
                 }
             } else {
-                // 没有后台时间记录或设置为从不锁定，清除记录
-                android.util.Log.d("MainActivity", "清除后台时间记录");
-                backendService.clearBackgroundTime();
+                android.util.Log.d("MainActivity", "没有后台时间记录（应用未进入过后台）");
             }
+        } else {
+            android.util.Log.e("MainActivity", "backendService 为 null，无法检查自动锁定");
         }
+
+        android.util.Log.d("MainActivity", "=== checkAutoLock() 结束 ===");
     }
 
     private void lockApp() {
+        android.util.Log.d("MainActivity", "=== lockApp() 被调用 ===");
         if (backendService != null) {
+            android.util.Log.d("MainActivity", "调用 backendService.lock()");
             backendService.lock();
+            android.util.Log.d("MainActivity", "backendService.lock() 完成");
         }
 
         // 跳转到登录页面

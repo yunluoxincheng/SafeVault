@@ -39,6 +39,7 @@ public class CryptoManager {
     private static final String PREF_SESSION_KEY = "session_master_key";
     private static final String PREF_SESSION_IV = "session_master_iv";
     private static final String PREF_UNLOCK_TIME = "unlock_time";
+    private static final String PREF_IS_LOCKED = "is_locked";  // 明确的锁定标志
     private static final long SESSION_TIMEOUT_MS = 30 * 60 * 1000; // 30分钟会话超时
     
     private static final String KEYSTORE_ALIAS = "SafeVaultSessionKey";
@@ -87,12 +88,13 @@ public class CryptoManager {
             editor.putString(PREF_SALT, Base64.encodeToString(salt, Base64.NO_WRAP));
             editor.putString(PREF_VERIFY_HASH, verifyHash);
             editor.putBoolean(PREF_INITIALIZED, true);
+            editor.remove(PREF_IS_LOCKED);  // 清除锁定标志
             editor.apply();
 
             // 设置为已解锁
             this.masterKey = key;
             this.isUnlocked = true;
-            
+
             // 持久化会话密钥，供自动填充服务使用
             persistSessionKey(key);
 
@@ -126,7 +128,10 @@ public class CryptoManager {
             // 派生主密钥
             this.masterKey = deriveKey(masterPassword, salt);
             this.isUnlocked = true;
-            
+
+            // 清除锁定标志（允许会话恢复）
+            prefs.edit().remove(PREF_IS_LOCKED).apply();
+
             // 持久化会话密钥，供自动填充服务使用
             persistSessionKey(this.masterKey);
 
@@ -139,12 +144,29 @@ public class CryptoManager {
 
     /**
      * 锁定，清除内存中的密钥
+     * 设置锁定标志，阻止会话恢复
      */
     public void lock() {
+        Log.d(TAG, "=== lock() 被调用 ===");
+        Log.d(TAG, "锁定前状态: isUnlocked=" + this.isUnlocked + ", masterKey=" + (this.masterKey != null ? "存在" : "null"));
+
         this.masterKey = null;
         this.isUnlocked = false;
-        // 清除持久化的会话密钥
-        clearSessionKey();
+
+        // 先设置锁定标志（同步），防止会话恢复
+        SharedPreferences.Editor editor = prefs.edit();
+        editor.putBoolean(PREF_IS_LOCKED, true);
+        boolean committed = editor.commit();  // 使用 commit 确保立即生效
+        Log.d(TAG, "设置锁定标志 PREF_IS_LOCKED=true, commit=" + committed);
+
+        // 再清除持久化的会话密钥（同步）
+        clearSessionKeySync();
+
+        // 验证锁定标志已设置
+        boolean isLockedFlag = prefs.getBoolean(PREF_IS_LOCKED, false);
+        Log.d(TAG, "验证锁定标志: PREF_IS_LOCKED=" + isLockedFlag);
+        Log.d(TAG, "锁定后状态: isUnlocked=" + this.isUnlocked + ", masterKey=" + (this.masterKey != null ? "存在" : "null"));
+        Log.d(TAG, "=== lock() 完成 ===");
     }
 
     /**
@@ -159,6 +181,7 @@ public class CryptoManager {
         }
 
         Log.d(TAG, "isUnlocked: 内存中未锁定，尝试恢复会话...");
+        Log.d(TAG, "isUnlocked: PREF_IS_LOCKED=" + prefs.getBoolean(PREF_IS_LOCKED, false));
 
         // 尝试从持久化存储恢复会话密钥
         boolean restored = tryRestoreSession();
@@ -357,7 +380,7 @@ public class CryptoManager {
     }
     
     /**
-     * 清除持久化的会话密钥
+     * 清除持久化的会话密钥（异步版本）
      */
     private void clearSessionKey() {
         SharedPreferences.Editor editor = prefs.edit();
@@ -365,23 +388,43 @@ public class CryptoManager {
         editor.remove(PREF_SESSION_IV);
         editor.remove(PREF_UNLOCK_TIME);
         editor.apply();
-        Log.d(TAG, "Session key cleared");
+        Log.d(TAG, "Session key cleared (async)");
+    }
+
+    /**
+     * 清除持久化的会话密钥（同步版本）
+     * 在 lock() 时使用，确保立即生效
+     */
+    private void clearSessionKeySync() {
+        SharedPreferences.Editor editor = prefs.edit();
+        editor.remove(PREF_SESSION_KEY);
+        editor.remove(PREF_SESSION_IV);
+        editor.remove(PREF_UNLOCK_TIME);
+        editor.commit();  // 使用 commit 确保立即生效
+        Log.d(TAG, "Session key cleared (sync)");
     }
     
     /**
      * 尝试从持久化存储恢复会话密钥
+     * 如果应用已锁定（PREF_IS_LOCKED == true），则不恢复会话
      */
     private boolean tryRestoreSession() {
+        // 首先检查是否已锁定
+        if (prefs.getBoolean(PREF_IS_LOCKED, false)) {
+            Log.d(TAG, "App is locked, cannot restore session");
+            return false;
+        }
+
         try {
             String encryptedKeyBase64 = prefs.getString(PREF_SESSION_KEY, null);
             String ivBase64 = prefs.getString(PREF_SESSION_IV, null);
             long unlockTime = prefs.getLong(PREF_UNLOCK_TIME, 0);
-            
+
             if (encryptedKeyBase64 == null || ivBase64 == null) {
                 Log.d(TAG, "No session key found");
                 return false;
             }
-            
+
             // 检查会话是否超时
             if (System.currentTimeMillis() - unlockTime > SESSION_TIMEOUT_MS) {
                 Log.d(TAG, "Session expired");

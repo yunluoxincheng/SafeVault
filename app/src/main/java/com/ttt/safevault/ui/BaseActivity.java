@@ -2,7 +2,6 @@ package com.ttt.safevault.ui;
 
 import android.content.Intent;
 import android.os.Bundle;
-import android.view.MotionEvent;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -13,13 +12,14 @@ import com.ttt.safevault.security.SecurityManager;
 
 /**
  * 基础Activity
- * 所有Activity都应该继承此类以自动应用安全措施
+ * 提供安全管理器和安全措施的便捷访问
+ *
+ * 注意：自动锁定功能由 MainActivity 和 SafeVaultApplication 统一处理
  */
 public abstract class BaseActivity extends AppCompatActivity {
 
     protected SecurityManager securityManager;
     protected BackendService backendService;
-    private boolean shouldAutoLock = true;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -34,110 +34,12 @@ public abstract class BaseActivity extends AppCompatActivity {
         applySecurityMeasures();
     }
 
-    @Override
-    protected void onStart() {
-        super.onStart();
-        // 开始自动锁定监控
-        if (shouldAutoLock) {
-            securityManager.startAutoLockMonitoring();
-        }
-    }
-
-    @Override
-    protected void onResume() {
-        super.onResume();
-        // 更新最后交互时间
-        if (shouldAutoLock) {
-            securityManager.updateLastInteraction();
-        }
-
-        // 检查是否需要锁定
-        if (securityManager.shouldAutoLock()) {
-            navigateToLogin();
-        }
-    }
-
-    @Override
-    protected void onPause() {
-        super.onPause();
-        // 注意：不再在这里记录后台时间
-        // 因为在 Activity 之间切换时也会触发 onPause
-        // 改为使用 Application 级别的 ProcessLifecycleOwner 来跟踪应用前后台状态
-    }
-
-    @Override
-    protected void onStop() {
-        super.onStop();
-        // 停止自动锁定监控
-        securityManager.stopAutoLockMonitoring();
-    }
-
-    @Override
-    protected void onDestroy() {
-        super.onDestroy();
-        // 清理资源
-        if (securityManager != null) {
-            securityManager.stopAutoLockMonitoring();
-        }
-    }
-
-    @Override
-    public boolean dispatchTouchEvent(@NonNull MotionEvent ev) {
-        // 用户交互时更新时间
-        if (shouldAutoLock) {
-            securityManager.updateLastInteraction();
-        }
-        return super.dispatchTouchEvent(ev);
-    }
-
-    @Override
-    public void onUserInteraction() {
-        super.onUserInteraction();
-        // 用户交互时更新时间
-        if (shouldAutoLock) {
-            securityManager.updateLastInteraction();
-        }
-    }
-
     /**
      * 应用安全措施
      */
     protected void applySecurityMeasures() {
         // 防止截图
         securityManager.applySecurityMeasures(this);
-
-        // 设置锁定监听器
-        securityManager.setLockListener(new SecurityManager.LockListener() {
-            @Override
-            public void onLocked() {
-                runOnUiThread(() -> navigateToLogin());
-            }
-
-            @Override
-            public void onUnlocked() {
-                // 解锁后的处理
-            }
-        });
-    }
-
-    /**
-     * 禁用自动锁定
-     */
-    protected void disableAutoLock() {
-        shouldAutoLock = false;
-        if (securityManager != null) {
-            securityManager.stopAutoLockMonitoring();
-        }
-    }
-
-    /**
-     * 启用自动锁定
-     */
-    protected void enableAutoLock() {
-        shouldAutoLock = true;
-        if (securityManager != null) {
-            securityManager.startAutoLockMonitoring();
-        }
     }
 
     /**

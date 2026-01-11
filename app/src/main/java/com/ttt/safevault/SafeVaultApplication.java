@@ -40,22 +40,28 @@ public class SafeVaultApplication extends Application implements Application.Act
     @Override
     public void onActivityStarted(android.app.Activity activity) {
         activityCount++;
+        Log.d(TAG, "onActivityStarted: activity=" + activity.getClass().getSimpleName() + ", count=" + activityCount);
         if (activityCount == 1) {
             // 应用从后台回到前台
-            Log.d(TAG, "应用回到前台");
+            Log.d(TAG, "=== 应用回到前台 ===");
             isAppInForeground = true;
         }
     }
 
     @Override
     public void onActivityStopped(android.app.Activity activity) {
+        Log.d(TAG, "onActivityStopped: activity=" + activity.getClass().getSimpleName() + ", count before=" + activityCount);
         activityCount--;
+        Log.d(TAG, "onActivityStopped: count after=" + activityCount);
         if (activityCount == 0) {
             // 应用真正进入后台（所有Activity都停止了）
-            Log.d(TAG, "应用进入后台，记录时间");
+            Log.d(TAG, "=== 应用进入后台，记录时间 ===");
             isAppInForeground = false;
             if (backendService != null) {
                 backendService.recordBackgroundTime();
+                Log.d(TAG, "后台时间已记录: " + backendService.getBackgroundTime());
+            } else {
+                Log.e(TAG, "backendService 为 null，无法记录后台时间");
             }
         }
     }

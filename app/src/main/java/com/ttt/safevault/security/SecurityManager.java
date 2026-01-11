@@ -11,28 +11,23 @@ import android.view.WindowManager;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
-import androidx.lifecycle.Lifecycle;
-import androidx.lifecycle.LifecycleObserver;
-import androidx.lifecycle.OnLifecycleEvent;
 
 import com.ttt.safevault.ServiceLocator;
 import com.ttt.safevault.model.BackendService;
 import com.ttt.safevault.utils.ClipboardManager;
 
 import java.util.List;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 
 /**
  * 安全管理器
- * 负责管理应用的安全措施，包括防截图、自动锁定等
+ * 负责管理应用的安全措施，包括防截图、锁定等
  * 使用单例模式确保整个应用共享同一个实例
+ *
+ * 注意：自动锁定功能由 MainActivity 和 SafeVaultApplication 统一处理
  */
-public class SecurityManager implements LifecycleObserver {
+public class SecurityManager {
 
     private static final String TAG = "SecurityManager";
-    private static final int AUTO_LOCK_DELAY = 30000; // 30秒
     private static final int CLIPBOARD_CLEAR_DELAY = 30000; // 30秒
 
     // 单例实例
@@ -40,8 +35,6 @@ public class SecurityManager implements LifecycleObserver {
 
     private final Context context;
     private final ClipboardManager clipboardManager;
-    private ScheduledExecutorService autoLockExecutor;
-    private long lastInteractionTime;
     private boolean isLocked = false;
 
     /**
@@ -63,17 +56,13 @@ public class SecurityManager implements LifecycleObserver {
      */
     public static void resetInstance() {
         synchronized (SecurityManager.class) {
-            if (instance != null) {
-                instance.stopAutoLockMonitoring();
-                instance = null;
-            }
+            instance = null;
         }
     }
 
-    private SecurityManager(@NonNull Context context) {
+    SecurityManager(@NonNull Context context) {
         this.context = context;
         this.clipboardManager = new ClipboardManager(this.context);
-        this.lastInteractionTime = System.currentTimeMillis();
     }
 
     /**
@@ -145,66 +134,6 @@ public class SecurityManager implements LifecycleObserver {
         }
     }
 
-    
-    /**
-     * 开始自动锁定监控
-     */
-    public void startAutoLockMonitoring() {
-        if (autoLockExecutor == null) {
-            autoLockExecutor = Executors.newSingleThreadScheduledExecutor();
-            autoLockExecutor.scheduleAtFixedRate(() -> {
-                if (shouldAutoLock()) {
-                    lock();
-                }
-            }, 5, 5, TimeUnit.SECONDS); // 每5秒检查一次
-        }
-    }
-
-    /**
-     * 停止自动锁定监控
-     */
-    public void stopAutoLockMonitoring() {
-        if (autoLockExecutor != null) {
-            autoLockExecutor.shutdownNow();
-            autoLockExecutor = null;
-        }
-    }
-
-    /**
-     * 更新最后交互时间
-     */
-    public void updateLastInteraction() {
-        lastInteractionTime = System.currentTimeMillis();
-    }
-
-    /**
-     * 检查是否应该自动锁定
-     * 使用用户在设置中配置的自动锁定超时时间
-     */
-    public boolean shouldAutoLock() {
-        if (isLocked) {
-            return false;
-        }
-
-        // 获取用户配置的自动锁定超时时间
-        SecurityConfig config = new SecurityConfig(context);
-
-        // 检查自动锁定是否启用
-        if (!config.isAutoLockEnabled()) {
-            return false;
-        }
-
-        // 获取配置的超时时间（毫秒）
-        long timeoutMillis = config.getAutoLockTimeoutMillisForMode();
-
-        // 如果设置为从不锁定，返回false
-        if (timeoutMillis == Long.MAX_VALUE) {
-            return false;
-        }
-
-        // 检查是否超时
-        return (System.currentTimeMillis() - lastInteractionTime > timeoutMillis);
-    }
 
     /**
      * 锁定应用
@@ -225,11 +154,6 @@ public class SecurityManager implements LifecycleObserver {
         } catch (Exception e) {
             android.util.Log.e(TAG, "SecurityManager: 调用BackendService.lock()失败", e);
         }
-
-        // 触发锁定回调
-        if (lockListener != null) {
-            lockListener.onLocked();
-        }
     }
 
     /**
@@ -237,11 +161,6 @@ public class SecurityManager implements LifecycleObserver {
      */
     public void unlock() {
         isLocked = false;
-        updateLastInteraction();
-        // 触发解锁回调
-        if (lockListener != null) {
-            lockListener.onUnlocked();
-        }
     }
 
     /**
@@ -353,29 +272,6 @@ public class SecurityManager implements LifecycleObserver {
         return clipboardManager;
     }
 
-    // 生命周期事件处理
-    @OnLifecycleEvent(Lifecycle.Event.ON_RESUME)
-    public void onAppForegrounded() {
-        updateLastInteraction();
-    }
-
-    @OnLifecycleEvent(Lifecycle.Event.ON_PAUSE)
-    public void onAppBackgrounded() {
-        // 应用进入后台时可能需要额外的安全措施
-    }
-
-    // 锁定监听器接口
-    public interface LockListener {
-        void onLocked();
-        void onUnlocked();
-    }
-
-    private LockListener lockListener;
-
-    public void setLockListener(@Nullable LockListener listener) {
-        this.lockListener = listener;
-    }
-    
     /**
      * 检查生物识别是否已启用且可用
      * @return true表示生物识别已启用且设备支持
@@ -386,18 +282,18 @@ public class SecurityManager implements LifecycleObserver {
         if (!config.isBiometricEnabled()) {
             return false;
         }
-        
+
         // 检查设备是否支持生物识别
         return com.ttt.safevault.security.BiometricAuthHelper.isBiometricSupported(context);
     }
-    
+
     /**
      * 检查生物识别是否已启用但设备不支持
      * @return true表示已启用但不可用
      */
     public boolean isBiometricEnabledButUnavailable() {
         SecurityConfig config = new SecurityConfig(context);
-        return config.isBiometricEnabled() && 
+        return config.isBiometricEnabled() &&
                !com.ttt.safevault.security.BiometricAuthHelper.isBiometricSupported(context);
     }
 }
