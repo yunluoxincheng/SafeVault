@@ -7,14 +7,16 @@ public class LoginRequest {
     private String userId;
     private String deviceId;
     private String signature;
+    private Long timestamp;
 
     public LoginRequest() {
     }
 
-    public LoginRequest(String userId, String deviceId, String signature) {
+    public LoginRequest(String userId, String deviceId, String signature, Long timestamp) {
         this.userId = userId;
         this.deviceId = deviceId;
         this.signature = signature;
+        this.timestamp = timestamp;
     }
 
     public String getUserId() {
@@ -39,5 +41,13 @@ public class LoginRequest {
 
     public void setSignature(String signature) {
         this.signature = signature;
+    }
+
+    public Long getTimestamp() {
+        return timestamp;
+    }
+
+    public void setTimestamp(Long timestamp) {
+        this.timestamp = timestamp;
     }
 }
